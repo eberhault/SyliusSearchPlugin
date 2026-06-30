@@ -25,10 +25,13 @@ final class NameSorter implements SorterInterface
     public function apply(Query $query, RequestConfiguration $requestConfiguration): void
     {
         $sorting = $requestConfiguration->getSorting();
-        if (!\array_key_exists('name', $sorting)) {
+
+        if (!\array_key_exists(key: 'name', array: $sorting)) {
             return;
         }
 
-        $query->addSort($this->buildSort('name.keyword', $sorting['name']));
+        $query->addSort(
+            sort: $this->buildSort(field: 'name.keyword', order: $sorting['name']),
+        );
     }
 }

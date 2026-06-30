@@ -18,25 +18,16 @@ use Symfony\Contracts\EventDispatcher\Event;
 
 class MappingProviderEvent extends Event
 {
-    public const EVENT_NAME = 'monsieurbiz.search.mapping.provider';
-
-    private string $indexCode;
-
-    /**
-     * @var ArrayObject<string, array>|null
-     */
-    private ?ArrayObject $mapping;
-
-    private array $context;
+    public const string EVENT_NAME = 'monsieurbiz.search.mapping.provider';
 
     /**
      * @param ArrayObject<string, array>|null $mapping
      */
-    public function __construct(string $indexCode, ?ArrayObject $mapping, array $context = [])
-    {
-        $this->indexCode = $indexCode;
-        $this->mapping = $mapping;
-        $this->context = $context;
+    public function __construct(
+        private readonly string $indexCode,
+        private readonly ?ArrayObject $mapping,
+        private readonly array $context = [],
+    ) {
     }
 
     public function getIndexCode(): string

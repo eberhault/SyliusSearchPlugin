@@ -17,16 +17,14 @@ use Elastica\Aggregation\AbstractAggregation;
 use MonsieurBiz\SyliusSearchPlugin\Search\Request\Aggregation\AggregationBuilderInterface;
 use RuntimeException;
 
-class AggregationBuilder
+readonly class AggregationBuilder
 {
     /**
-     * @var iterable<AggregationBuilderInterface>
+     * @param iterable<AggregationBuilderInterface> $aggregationBuilders
      */
-    private iterable $aggregationBuilders;
-
-    public function __construct(iterable $aggregationBuilders)
-    {
-        $this->aggregationBuilders = $aggregationBuilders;
+    public function __construct(
+        private iterable $aggregationBuilders,
+    ) {
     }
 
     public function buildAggregations(array $aggregations, array $filters): array
@@ -34,22 +32,19 @@ class AggregationBuilder
         $buckets = [];
 
         foreach ($aggregations as $aggregation) {
-            $aggregationQuery = $this->buildAggregation($aggregation, $filters);
+            $aggregationQuery = $this->buildAggregation(aggregation: $aggregation, filters: $filters);
+
             if (false === $aggregationQuery) {
                 continue;
             }
+
             $buckets[] = $aggregationQuery;
         }
 
-        return array_filter($buckets);
+        return array_filter(array: $buckets);
     }
 
-    /**
-     * @param string|array $aggregation
-     *
-     * @return AbstractAggregation|bool
-     */
-    private function buildAggregation($aggregation, array $filters)
+    private function buildAggregation(string|array $aggregation, array $filters): AbstractAggregation|bool
     {
         // Don't build aggregation if the given one is empty
         if (empty($aggregation)) {
@@ -57,12 +52,13 @@ class AggregationBuilder
         }
 
         foreach ($this->aggregationBuilders as $aggregationBuilder) {
-            $aggregationQuery = $aggregationBuilder->build($aggregation, $filters);
+            $aggregationQuery = $aggregationBuilder->build(aggregation: $aggregation, filters: $filters);
+
             if (null !== $aggregationQuery) {
                 return $aggregationQuery;
             }
         }
 
-        throw new RuntimeException('Aggregation cannot be build'); // it's throw an exception if we have not filtreable attribute
+        throw new RuntimeException(message: 'Aggregation cannot be build'); // it's throw an exception if we have not filtreable attribute
     }
 }

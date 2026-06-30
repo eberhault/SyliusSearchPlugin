@@ -18,13 +18,11 @@ use Elastica\QueryBuilder;
 use MonsieurBiz\SyliusSearchPlugin\Search\Request\QueryFilter\QueryFilterInterface;
 use MonsieurBiz\SyliusSearchPlugin\Search\Request\RequestConfiguration;
 
-class IsInStockFilter implements QueryFilterInterface
+readonly class IsInStockFilter implements QueryFilterInterface
 {
-    private bool $enableStockFilter;
-
-    public function __construct(bool $enableStockFilter)
-    {
-        $this->enableStockFilter = $enableStockFilter;
+    public function __construct(
+        private bool $enableStockFilter,
+    ) {
     }
 
     public function apply(BoolQuery $boolQuery, RequestConfiguration $requestConfiguration): void
@@ -33,13 +31,20 @@ class IsInStockFilter implements QueryFilterInterface
             return;
         }
 
-        $qb = new QueryBuilder();
+        $queryBuilder = new QueryBuilder();
+
         $boolQuery->addFilter(
-            $qb->query()->nested()
-                ->setPath('variants')
+            filter: $queryBuilder
+                ->query()
+                ->nested()
+                ->setPath(path: 'variants')
                 ->setQuery(
-                    $qb->query()->term(['variants.is_in_stock' => ['value' => true]])
-                )
+                    query: $queryBuilder
+                        ->query()
+                        ->term(
+                            term: ['variants.is_in_stock' => ['value' => true]],
+                        ),
+                ),
         );
     }
 }

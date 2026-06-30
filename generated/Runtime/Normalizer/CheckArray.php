@@ -4,10 +4,13 @@ namespace MonsieurBiz\SyliusSearchPlugin\Generated\Runtime\Normalizer;
 
 trait CheckArray
 {
-    public function isOnlyNumericKeys(array $array) : bool
+    public function isOnlyNumericKeys(array $array): bool
     {
-        return count(array_filter($array, function ($key) {
-            return is_numeric($key);
-        }, ARRAY_FILTER_USE_KEY)) === count($array);
+        $numericOnly = array_filter(
+            $array,
+            static fn(mixed $key): bool => is_numeric($key),
+            ARRAY_FILTER_USE_KEY);
+
+        return count($numericOnly) === count($array);
     }
 }

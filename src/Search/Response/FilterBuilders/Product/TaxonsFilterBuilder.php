@@ -22,51 +22,72 @@ use Sylius\Component\Taxonomy\Model\TaxonInterface;
 
 class TaxonsFilterBuilder implements FilterBuilderInterface
 {
-    /**
-     * @SuppressWarnings(PHPMD.CyclomaticComplexity)
-     */
     public function build(
         DocumentableInterface $documentable,
         RequestConfiguration $requestConfiguration,
         string $aggregationCode,
         array $aggregationData
     ): ?array {
-        if (false === (bool) preg_match('/monsieurbiz_product$/', $documentable->getIndexCode()) || 'taxons' !== $aggregationCode) {
+        if (!str_ends_with($documentable->getIndexCode(), 'monsieurbiz_product') || 'taxons' !== $aggregationCode) {
             return null;
         }
 
         $childTaxonCodes = null;
-        if (RequestInterface::TAXON_TYPE == $requestConfiguration->getType()) {
-            $childTaxonCodes = $requestConfiguration->getTaxon()->getChildren()->map(function (TaxonInterface $taxon): ?string {
-                return $taxon->getCode();
-            });
+
+        if (RequestInterface::TAXON_TYPE === $requestConfiguration->getType()) {
+            $childTaxonCodes = $requestConfiguration
+                ->getTaxon()
+                ->getChildren()
+                ->map(
+                    func: static fn (TaxonInterface $taxon): ?string => $taxon->getCode(),
+                );
         }
 
         $taxonAggregation = $aggregationData['taxons']['taxons']['taxons'] ?? null;
+
         if ($taxonAggregation && $taxonAggregation['doc_count'] > 0) {
-            $filter = new Filter($requestConfiguration, 'taxons', 'monsieurbiz_searchplugin.filters.taxon_filter', $taxonAggregation['doc_count']);
+            $filter = new Filter(
+                requestConfiguration: $requestConfiguration,
+                code: 'taxons',
+                label: 'monsieurbiz_searchplugin.filters.taxon_filter',
+                count: $taxonAggregation['doc_count'],
+            );
 
             // Get main taxon code in aggregation
             $taxonCodeBuckets = $taxonAggregation['codes']['buckets'] ?? [];
+
             foreach ($taxonCodeBuckets as $taxonCodeBucket) {
                 if (0 === $taxonCodeBucket['doc_count']) {
                     continue;
                 }
+
                 $taxonCode = $taxonCodeBucket['key'];
+
                 // If we have a current taxon, add only the filter for the children of this taxon.
-                if (null !== $childTaxonCodes && !\in_array($taxonCode, $childTaxonCodes->toArray(), true)) {
+                if (
+                    null !== $childTaxonCodes &&
+                    !in_array(needle: $taxonCode, haystack: $childTaxonCodes->toArray(), strict: true)
+                ) {
                     continue;
                 }
+
                 $taxonName = null;
+
                 $taxonNameBuckets = $taxonCodeBucket['names']['buckets'] ?? [];
+
                 foreach ($taxonNameBuckets as $taxonNameBucket) {
                     $taxonName = $taxonNameBucket['key'];
-                    $filter->addValue($taxonName ?? $taxonCode, $taxonCodeBucket['doc_count'], $taxonCode);
+
+                    $filter->addValue(
+                        label: $taxonName ?? $taxonCode,
+                        count: $taxonCodeBucket['doc_count'],
+                        value: $taxonCode,
+                    );
                 }
             }
 
             // Put taxon filter in first if contains value
-            if (0 !== \count($filter->getValues())) {
+            if (0 !== count(value: $filter->getValues())) {
                 return [$filter];
             }
         }

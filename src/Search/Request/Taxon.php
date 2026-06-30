@@ -26,54 +26,28 @@ use Sylius\Component\Registry\ServiceRegistryInterface;
 
 class Taxon implements TaxonInterface
 {
-    protected ServiceRegistryInterface $documentableRegistry;
-
-    protected ChannelContextInterface $channelContext;
-
-    protected string $documentType;
-
-    protected AggregationBuilder $aggregationBuilder;
-
     protected ?RequestConfiguration $configuration;
 
     /**
-     * @var iterable<QueryFilterInterface>
+     * @param ServiceRegistryInterface $documentableRegistry
+     * @param ChannelContextInterface $channelContext
+     * @param AggregationBuilder $aggregationBuilder
+     * @param string $documentType
+     * @param iterable<QueryFilterInterface> $queryFilters
+     * @param iterable<PostFilterInterface> $postFilters
+     * @param iterable<SorterInterface> $sorters
+     * @param iterable<FunctionScoreInterface> $functionScores
      */
-    protected iterable $queryFilters;
-
-    /**
-     * @var iterable<PostFilterInterface>
-     */
-    protected iterable $postFilters;
-
-    /**
-     * @var iterable<SorterInterface>
-     */
-    protected iterable $sorters;
-
-    /**
-     * @var iterable<FunctionScoreInterface>
-     */
-    protected iterable $functionScores;
-
     public function __construct(
-        ServiceRegistryInterface $documentableRegistry,
-        ChannelContextInterface $channelContext,
-        AggregationBuilder $aggregationBuilder,
-        string $documentType,
-        iterable $queryFilters,
-        iterable $postFilters,
-        iterable $sorters,
-        iterable $functionScores
+        private readonly ServiceRegistryInterface $documentableRegistry,
+        private readonly ChannelContextInterface $channelContext,
+        private readonly AggregationBuilder $aggregationBuilder,
+        private readonly string $documentType,
+        private readonly iterable $queryFilters,
+        private readonly iterable $postFilters,
+        private readonly iterable $sorters,
+        private readonly iterable $functionScores
     ) {
-        $this->documentableRegistry = $documentableRegistry;
-        $this->channelContext = $channelContext;
-        $this->aggregationBuilder = $aggregationBuilder;
-        $this->documentType = $documentType;
-        $this->queryFilters = $queryFilters;
-        $this->postFilters = $postFilters;
-        $this->sorters = $sorters;
-        $this->functionScores = $functionScores;
     }
 
     public function getType(): string
@@ -83,51 +57,62 @@ class Taxon implements TaxonInterface
 
     public function getDocumentable(): DocumentableInterface
     {
-        /** @phpstan-ignore-next-line  */
-        return $this->documentableRegistry->get('search.documentable.' . $this->documentType);
+        return $this->documentableRegistry->get(
+            identifier: sprintf('search.documentable.%s', $this->documentType),
+        );
     }
 
-    /**
-     * @SuppressWarnings(PHPMD.CyclomaticComplexity)
-     */
     public function getQuery(): Query
     {
-        if (!($configuration = $this->configuration)) {
-            throw new RuntimeException('Configuration is not set');
+        if (!$this->configuration instanceof RequestConfiguration) {
+            throw new RuntimeException(message: 'Configuration is not set');
         }
 
-        $qb = new QueryBuilder();
+        $queryBuilder = new QueryBuilder();
 
-        $boolQuery = $qb->query()->bool();
+        $boolQuery = $queryBuilder->query()->bool();
+
         foreach ($this->queryFilters as $queryFilter) {
-            $queryFilter->apply($boolQuery, $configuration);
+            $queryFilter->apply(
+                boolQuery: $boolQuery,
+                requestConfiguration: $this->configuration,
+            );
         }
 
-        $query = Query::create($boolQuery);
+        $query = Query::create(query: $boolQuery);
+
         $postFilter = new Query\BoolQuery();
-        foreach ($this->postFilters as $postFilterApplier) {
-            $postFilterApplier->apply($postFilter, $configuration);
-        }
-        $query->setPostFilter($postFilter);
 
-        $this->addAggregations($query, $postFilter);
+        foreach ($this->postFilters as $postFilterApplier) {
+            $postFilterApplier->apply(boolQuery: $postFilter, requestConfiguration: $this->configuration);
+        }
+
+        $query->setPostFilter(filter: $postFilter);
+
+        $this->addAggregations(query: $query, postFilter: $postFilter);
 
         foreach ($this->sorters as $sorter) {
-            $sorter->apply($query, $configuration);
+            $sorter->apply(query: $query, requestConfiguration: $this->configuration);
         }
 
-        /** @var Query\AbstractQuery $queryObject */
         $queryObject = $query->getQuery();
-        $functionScore = $qb->query()->function_score()
-            ->setQuery($queryObject)
-            ->setBoostMode(Query\FunctionScore::BOOST_MODE_MULTIPLY)
-            ->setScoreMode(Query\FunctionScore::SCORE_MODE_MULTIPLY)
+
+        $functionScore = $queryBuilder
+            ->query()
+            ->function_score()
+            ->setQuery(query: $queryObject)
+            ->setBoostMode()
+            ->setScoreMode()
         ;
+
         foreach ($this->functionScores as $functionScoreClass) {
-            $functionScoreClass->addFunctionScore($functionScore, $configuration);
+            $functionScoreClass->addFunctionScore(
+                functionScore: $functionScore,
+                requestConfiguration: $this->configuration,
+            );
         }
 
-        $query->setQuery($functionScore);
+        $query->setQuery(query: $functionScore);
 
         return $query;
     }
@@ -142,9 +127,6 @@ class Taxon implements TaxonInterface
         $this->configuration = $configuration;
     }
 
-    /**
-     * @SuppressWarnings(PHPMD.UnusedFormalParameter)
-     */
     protected function addAggregations(Query $query, Query\BoolQuery $postFilter): void
     {
         // Used by children classes

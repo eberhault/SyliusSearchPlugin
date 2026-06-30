@@ -22,34 +22,35 @@ use Symfony\Component\Validator\Constraints\Required;
 
 class SearchType extends AbstractType
 {
-    /**
-     * @SuppressWarnings(PHPMD.UnusedFormalParameter)
-     */
     public function buildForm(FormBuilderInterface $builder, array $options): void
     {
         $builder
-            ->add('query', SymfonySearchType::class, [
-                'required' => true,
-                'label' => 'monsieurbiz_searchplugin.form.query',
-                'attr' => [
-                    'placeholder' => 'monsieurbiz_searchplugin.form.query_placeholder',
+            ->add(
+                child: 'query',
+                type: SymfonySearchType::class,
+                options: [
+                    'required' => true,
+                    'label' => 'monsieurbiz_searchplugin.form.query',
+                    'attr' => [
+                        'placeholder' => 'monsieurbiz_searchplugin.form.query_placeholder',
+                    ],
+                    'constraints' => [
+                        new NotBlank(),
+                        new Required(),
+                    ],
                 ],
-                'constraints' => [
-                    new NotBlank(),
-                    new Required(),
+            )
+            ->add(
+                child: 'submit',
+                type: SubmitType::class,
+                options: [
+                    'attr' => ['class' => 'submit'],
+                    'label' => 'monsieurbiz_searchplugin.form.submit',
                 ],
-            ])
-            ->add('submit', SubmitType::class, [
-                'attr' => ['class' => 'submit'],
-                'label' => 'monsieurbiz_searchplugin.form.submit',
-            ])
-        ;
+            );
     }
 
-    /**
-     * @inheritdoc
-     */
-    public function getBlockPrefix()
+    public function getBlockPrefix(): string
     {
         return 'monsieurbiz_searchplugin_search';
     }

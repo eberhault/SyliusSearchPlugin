@@ -13,7 +13,6 @@ declare(strict_types=1);
 
 namespace MonsieurBiz\SyliusSearchPlugin\DependencyInjection;
 
-use JoliCode\Elastically\Mapping\YamlProvider;
 use MonsieurBiz\SyliusSearchPlugin\Mapping\YamlWithLocaleProvider;
 use Symfony\Component\DependencyInjection\Compiler\CompilerPassInterface;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
@@ -23,19 +22,19 @@ class AutowireMappingProviderParameterPass implements CompilerPassInterface
 {
     public function process(ContainerBuilder $container): void
     {
-        if (!$container->hasDefinition(YamlProvider::class) || !$container->hasDefinition(YamlWithLocaleProvider::class)) {
+        if (!$container->hasDefinition(id: YamlWithLocaleProvider::class)) {
             return;
         }
 
-        $yamlMappingProvider = $container->getDefinition(YamlProvider::class);
-        $decoratedYamlMappingProvider = $container->getDefinition(YamlWithLocaleProvider::class);
+        $yamlMappingProvider = $container->getDefinition(id: YamlWithLocaleProvider::class);
+        $decoratedYamlMappingProvider = $container->getDefinition(id: YamlWithLocaleProvider::class);
 
         try {
             $decoratedYamlMappingProvider->setArgument(
-                '$configurationDirectory',
-                $yamlMappingProvider->getArgument('$configurationDirectory')
+                key: '$configurationDirectory',
+                value: $yamlMappingProvider->getArgument(index: '$configurationDirectory')
             );
-        } catch (OutOfBoundsException $exception) {
+        } catch (OutOfBoundsException) {
             // yaml provider service has no configuration directory argument
         }
     }

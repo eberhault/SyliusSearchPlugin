@@ -13,6 +13,7 @@ declare(strict_types=1);
 
 namespace MonsieurBiz\SyliusSearchPlugin\Search\Request\Aggregation;
 
+use Elastica\Aggregation\AbstractAggregation;
 use Elastica\Query\AbstractQuery;
 use Elastica\QueryBuilder;
 use Sylius\Component\Product\Model\ProductOptionInterface;
@@ -26,12 +27,7 @@ final class ProductOptionsAggregation implements AggregationBuilderInterface
         $this->productOptionAggregationBuilder = $productOptionAggregationBuilder;
     }
 
-    /**
-     * @SuppressWarnings(PHPMD.CyclomaticComplexity)
-     *
-     * @param array $aggregation
-     */
-    public function build($aggregation, array $filters)
+    public function build(object|array|string $aggregation, array $filters): false|AbstractAggregation|null
     {
         if (!$this->isSupport($aggregation)) {
             return null;

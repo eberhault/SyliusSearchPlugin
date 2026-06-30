@@ -15,9 +15,12 @@ namespace MonsieurBiz\SyliusSearchPlugin\Index;
 
 use Doctrine\Common\Proxy\Proxy;
 use Doctrine\ORM\EntityManagerInterface;
-use Elastica\Document;
-use Jane\Component\AutoMapper\AutoMapperInterface;
+use Elastic\Elasticsearch\Exception\ClientResponseException;
+use Elastic\Elasticsearch\Exception\MissingParameterException;
+use Elastic\Elasticsearch\Exception\ServerResponseException;
 use JoliCode\Elastically\Indexer as ElasticallyIndexer;
+use JoliCode\Elastically\Model\Document;
+use MonsieurBiz\SyliusSearchPlugin\AutoMapper\Mapper\Mapper;
 use MonsieurBiz\SyliusSearchPlugin\Model\Documentable\DocumentableInterface;
 use MonsieurBiz\SyliusSearchPlugin\Model\Documentable\PrefixedDocumentableInterface;
 use MonsieurBiz\SyliusSearchPlugin\Search\ClientFactory;
@@ -28,34 +31,20 @@ use Sylius\Component\Registry\ServiceRegistryInterface;
 use Sylius\Component\Resource\Model\TranslatableInterface;
 use Symfony\Component\Console\Output\NullOutput;
 use Symfony\Component\Console\Output\OutputInterface;
+use Symfony\Component\Serializer\Exception\ExceptionInterface;
 use TypeError;
 
 final class Indexer implements IndexerInterface
 {
-    private ServiceRegistryInterface $documentableRegistry;
-
-    private ChannelRepositoryInterface $channelRepository;
-
     private array $locales = [];
 
-    private EntityManagerInterface $entityManager;
-
-    private AutoMapperInterface $autoMapper;
-
-    private ClientFactory $clientFactory;
-
     public function __construct(
-        ServiceRegistryInterface $documentableRegistry,
-        ChannelRepositoryInterface $channelRepository,
-        EntityManagerInterface $entityManager,
-        AutoMapperInterface $autoMapper,
-        ClientFactory $clientFactory
+        private readonly ServiceRegistryInterface $documentableRegistry,
+        private readonly ChannelRepositoryInterface $channelRepository,
+        private readonly EntityManagerInterface $entityManager,
+        private readonly ClientFactory $clientFactory,
+        private readonly Mapper $mapper,
     ) {
-        $this->documentableRegistry = $documentableRegistry;
-        $this->channelRepository = $channelRepository;
-        $this->entityManager = $entityManager;
-        $this->autoMapper = $autoMapper;
-        $this->clientFactory = $clientFactory;
     }
 
     /**
@@ -64,74 +53,92 @@ final class Indexer implements IndexerInterface
     public function indexAll(?OutputInterface $output = null): void
     {
         $output = $output ?? new NullOutput();
+
         /** @var DocumentableInterface $documentable */
         foreach ($this->documentableRegistry->all() as $documentable) {
-            $documentable instanceof PrefixedDocumentableInterface && !empty($documentable->getPrefix()) ?
-                $output->writeln(\sprintf('Indexing <info>%s</info> (Prefix: <info>%s</info>)', $documentable->getIndexCode(), $documentable->getPrefix()))
-                : $output->writeln(\sprintf('Indexing <info>%s</info>', $documentable->getIndexCode()));
-            $this->indexDocumentable($output, $documentable);
+            $documentable instanceof PrefixedDocumentableInterface && [] !== $documentable->getPrefix() ?
+                $output->writeln(\sprintf('Indexing <info>%s</info> (Prefix: <info>%s</info>)', $documentable->getIndexCode(), $documentable->getPrefix())) :
+                $output->writeln(\sprintf('Indexing <info>%s</info>', $documentable->getIndexCode()));
+
+            $this->indexDocumentable(output: $output, documentable: $documentable);
         }
     }
 
     /**
-     * @SuppressWarnings(PHPMD.CyclomaticComplexity)
+     * @throws ClientResponseException
+     * @throws ExceptionInterface
+     * @throws ServerResponseException
+     * @throws MissingParameterException
      */
     public function indexByDocuments(DocumentableInterface $documentable, array $documents, ?string $locale = null, ?ElasticallyIndexer $indexer = null): void
     {
-        if (null === $indexer) {
-            $indexer = $this->clientFactory->getIndexer($documentable, $locale);
+        if (!$indexer instanceof ElasticallyIndexer) {
+            $indexer = $this->clientFactory->getIndexer(documentable: $documentable, localeCode: $locale);
         }
 
         if (null === $locale && $documentable->isTranslatable()) {
             foreach ($this->getLocales() as $localeCode) {
-                $this->indexByDocuments($documentable, $documents, $localeCode, $indexer);
+                $this->indexByDocuments(
+                    documentable: $documentable,
+                    documents: $documents,
+                    locale: $localeCode,
+                    indexer: $indexer,
+                );
             }
 
             return;
         }
-        $index = $this->clientFactory->getIndex($documentable, $locale);
+
+        $index = $this->clientFactory->getIndex(documentable: $documentable, locale: $locale);
+
         foreach ($documents as $document) {
             if (null !== $locale && $document instanceof TranslatableInterface) {
                 $document->setCurrentLocale($locale);
             }
-            $dto = $this->autoMapper->map($document, $documentable->getTargetClass());
-            // @phpstan-ignore-next-line
-            $indexer->scheduleIndex($index, new Document((string) $dto->getId(), $dto));
+
+            $dto = $this->mapper->map($document, $documentable->getTargetClass());
+
+            $indexer->scheduleIndex(
+                index: $index,
+                document: new Document(id: (string)$dto->getId(), data: $dto),
+            );
         }
 
         $indexer->flush();
     }
 
-    public function deleteByDocuments(DocumentableInterface $documentable, array $documents, ?string $locale = null, ?ElasticallyIndexer $indexer = null): void
-    {
-        $documentIds = [];
-        foreach ($documents as $document) {
-            $documentIds[] = $document->getId();
-        }
-
-        $this->deleteByDocumentIds($documentable, $documentIds, $locale, $indexer);
-    }
-
     /**
-     * @SuppressWarnings(PHPMD.CyclomaticComplexity)
+     * @throws ClientResponseException
+     * @throws ServerResponseException
+     * @throws MissingParameterException
      */
-    public function deleteByDocumentIds(DocumentableInterface $documentable, array $documentsIds, ?string $locale = null, ?ElasticallyIndexer $indexer = null): void
-    {
+    public function deleteByDocumentIds(
+        DocumentableInterface $documentable,
+        array $documentsIds,
+        ?string $locale = null,
+        ?ElasticallyIndexer $indexer = null,
+    ): void {
         if (null === $indexer) {
-            $indexer = $this->clientFactory->getIndexer($documentable, $locale);
+            $indexer = $this->clientFactory->getIndexer(documentable: $documentable, localeCode: $locale);
         }
 
         if (null === $locale && $documentable->isTranslatable()) {
             foreach ($this->getLocales() as $localeCode) {
-                $this->deleteByDocumentIds($documentable, $documentsIds, $localeCode, $indexer);
+                $this->deleteByDocumentIds(
+                    documentable: $documentable,
+                    documentsIds: $documentsIds,
+                    locale: $localeCode,
+                    indexer: $indexer,
+                );
             }
 
             return;
         }
 
-        $index = $this->clientFactory->getIndex($documentable, $locale);
+        $index = $this->clientFactory->getIndex(documentable: $documentable, locale: $locale);
+
         foreach ($documentsIds as $documentsId) {
-            $indexer->scheduleDelete($index, (string) $documentsId);
+            $indexer->scheduleDelete(index: $index, id: (string)$documentsId);
         }
 
         $indexer->flush();
@@ -142,77 +149,112 @@ final class Indexer implements IndexerInterface
      */
     private function getLocales(): array
     {
-        if (0 === \count($this->locales)) {
-            $enabledChannels = $this->channelRepository->findBy(['enabled' => true]);
+        if (0 === count($this->locales)) {
+            $enabledChannels = $this->channelRepository->findBy(criteria: ['enabled' => true]);
+
             /** @var ChannelInterface $channel */
             foreach ($enabledChannels as $channel) {
+                $channelLocales = $channel->getLocales()
+                    ->map(func: fn(LocaleInterface $locale): string => $locale->getCode() ?? '')
+                    ->toArray();
+
                 $this->locales = array_merge(
                     $this->locales,
-                    $channel->getLocales()->map(function (LocaleInterface $locale): string { return $locale->getCode() ?? ''; })->toArray()
+                    $channelLocales,
                 );
             }
-            $this->locales = array_unique(array_filter($this->locales));
+
+            $this->locales = array_unique(array: array_filter(array: $this->locales));
         }
 
         return $this->locales;
     }
 
     /**
-     * @SuppressWarnings(PHPMD.CyclomaticComplexity)
+     * @throws \Elastica\Exception\ExceptionInterface
+     * @throws ClientResponseException
+     * @throws ExceptionInterface
+     * @throws MissingParameterException
+     * @throws ServerResponseException
      */
     private function indexDocumentable(OutputInterface $output, DocumentableInterface $documentable, ?string $locale = null): void
     {
         if (null === $locale && $documentable->isTranslatable()) {
             foreach ($this->getLocales() as $localeCode) {
-                $documentable instanceof PrefixedDocumentableInterface && !empty($documentable->getPrefix()) ?
+                $documentable instanceof PrefixedDocumentableInterface && [] !== $documentable->getPrefix() ?
                     $output->writeln(
                         \sprintf('Indexing <info>%s</info> for locale <info>%s</info> (Prefix: <info>%s</info>)', $documentable->getIndexCode(), $localeCode, $documentable->getPrefix()),
                         OutputInterface::VERBOSITY_VERBOSE
-                    )
-                    : $output->writeln(
+                    ) :
+                    $output->writeln(
                         \sprintf('Indexing <info>%s</info> for locale <info>%s</info>', $documentable->getIndexCode(), $localeCode),
                         OutputInterface::VERBOSITY_VERBOSE
                     );
 
-                $this->indexDocumentable($output, $documentable, $localeCode);
+                $this->indexDocumentable(output: $output, documentable: $documentable, locale: $localeCode);
             }
 
             return;
         }
-        $indexName = $this->clientFactory->getIndexName($documentable, $locale);
-        $indexBuilder = $this->clientFactory->getIndexBuilder($documentable, $locale);
-        $newIndex = $indexBuilder->createIndex($indexName, [
-            'index_code' => $documentable->getIndexCode(),
-            'locale' => null !== $locale ? strtolower($locale) : null,
-        ]);
 
-        $indexer = $this->clientFactory->getIndexer($documentable, $locale);
-        foreach ($documentable->getDatasource()->getItems($documentable->getSourceClass()) as $item) {
+        $indexName = $this->clientFactory->getIndexName(documentable: $documentable, locale: $locale);
+
+        $indexBuilder = $this->clientFactory->getIndexBuilder(documentable: $documentable, localeCode: $locale);
+
+        $newIndex = $indexBuilder->createIndex(
+            indexName: $indexName,
+            context: [
+                'index_code' => $documentable->getIndexCode(),
+                'locale' => null !== $locale ? strtolower(string: $locale) : null,
+            ],
+        );
+
+        $indexer = $this->clientFactory->getIndexer(documentable: $documentable, localeCode: $locale);
+
+        $items = $documentable->getDatasource()
+            ->getItems(sourceClass: $documentable->getSourceClass());
+
+        foreach ($items as $item) {
             /** @var object $item */
-            $item = $this->getRealEntity($item);
+            $item = $this->getRealEntity(entity: $item);
+
             if (null !== $locale && $item instanceof TranslatableInterface) {
                 $item->setCurrentLocale($locale);
             }
 
             try {
-                $dto = $this->autoMapper->map($item, $documentable->getTargetClass());
+                $dto = $this->mapper->map(entity: $item, targetClass: $documentable->getTargetClass());
             } catch (TypeError $e) {
-                $id = method_exists($item, 'getId') ? $item->getId() : 'unknown';
+                $id = method_exists(object_or_class: $item, method: 'getId') ? $item->getId() : 'unknown';
+
                 $output->writeln(\sprintf('Error while mapping %s (id: %s): %s', $item::class, $id, $e->getMessage()));
 
                 continue;
             }
 
-            // @phpstan-ignore-next-line
-            $indexer->scheduleIndex($newIndex, new Document((string) $dto->getId(), $dto));
+            $indexer->scheduleIndex(
+                index: $newIndex,
+                document: new Document(id: (string)$dto->getId(), model: $dto),
+            );
         }
+
         $indexer->flush();
 
-        $indexBuilder->markAsLive($newIndex, $indexName);
-        $output->writeln(\sprintf('Index <info>%s</info> is now live', $indexName), OutputInterface::VERBOSITY_VERBOSE);
-        $indexBuilder->speedUpRefresh($newIndex);
-        $indexBuilder->purgeOldIndices($indexName);
-        $output->writeln(\sprintf('Old indices for <info>%s</info> are now purged', $indexName), OutputInterface::VERBOSITY_VERBOSE);
+        $indexBuilder->markAsLive(index: $newIndex, indexName: $indexName);
+
+        $output->writeln(
+            sprintf('Index <info>%s</info> is now live', $indexName),
+            OutputInterface::VERBOSITY_VERBOSE,
+        );
+
+        $indexBuilder->speedUpRefresh(index: $newIndex);
+
+        $indexBuilder->purgeOldIndices(indexName: $indexName);
+
+        $output->writeln(
+            sprintf('Old indices for <info>%s</info> are now purged', $indexName),
+            OutputInterface::VERBOSITY_VERBOSE,
+        );
     }
 
     /**
@@ -220,23 +262,17 @@ final class Indexer implements IndexerInterface
      *
      * This avoid to retrieve the incorrect Mapper and have errors like :
      * `index: /<INDEX_NAME>/_doc/<ID> caused failed to parse`
-     *
-     * @param mixed $entity
-     *
-     * @return mixed
      */
-    private function getRealEntity($entity)
+    private function getRealEntity(mixed $entity): mixed
     {
-        if (!$entity instanceof Proxy || !method_exists($entity, 'getId')) {
+        if (!$entity instanceof Proxy || !method_exists(object_or_class: $entity, method: 'getId')) {
             return $entity;
         }
 
-        // Clear the entity manager to detach the proxy object
-        $this->entityManager->clear($entity::class); /** @phpstan-ignore-line */
-        // Retrieve the original class name
-        $entityClassName = $this->entityManager->getClassMetadata($entity::class)->rootEntityName;
+        $this->entityManager->clear();
 
-        // Find the object in repository from the ID
-        return $this->entityManager->find($entityClassName, $entity->getId());
+        $entityClassName = $this->entityManager->getClassMetadata(className: $entity::class)->rootEntityName;
+
+        return $this->entityManager->find(className: $entityClassName, id: $entity->getId());
     }
 }

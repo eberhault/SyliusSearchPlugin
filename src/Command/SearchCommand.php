@@ -21,6 +21,7 @@ use MonsieurBiz\SyliusSearchPlugin\Search\Search;
 use MonsieurBiz\SyliusSettingsPlugin\Settings\SettingsInterface;
 use Sylius\Component\Channel\Context\ChannelContextInterface;
 use Sylius\Component\Registry\ServiceRegistryInterface;
+use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
@@ -29,36 +30,23 @@ use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\RequestStack;
+use Webmozart\Assert\Assert;
 
+#[AsCommand(name: 'monsieurbiz:search:search')]
 class SearchCommand extends Command
 {
-    protected static $defaultName = 'monsieurbiz:search:search';
-
-    private Search $search;
-
-    private RequestStack $requestStack;
-
-    private ChannelContextInterface $channelContext;
-
-    private SettingsInterface $searchSettings;
-
-    private ServiceRegistryInterface $documentableRegistry;
+    private const string DEFAULT_CHANNEL_CODE = 'FASHION_WEB';
 
     public function __construct(
-        Search $search,
-        RequestStack $requestStack,
-        ChannelContextInterface $channelContext,
-        SettingsInterface $searchSettings,
-        ServiceRegistryInterface $documentableRegistry,
-        $name = null
+        private readonly Search $search,
+        private readonly RequestStack $requestStack,
+        private readonly ChannelContextInterface $channelContext,
+        private readonly SettingsInterface $searchSettings,
+        private readonly ServiceRegistryInterface $documentableRegistry,
     ) {
-        parent::__construct($name);
-        $this->search = $search;
-        $this->requestStack = $requestStack;
-        $this->channelContext = $channelContext;
-        $this->searchSettings = $searchSettings;
-        $this->documentableRegistry = $documentableRegistry;
+        parent::__construct();
     }
+
 
     protected function configure(): void
     {
@@ -67,33 +55,41 @@ class SearchCommand extends Command
         $this->addOption('channel', 'c', InputOption::VALUE_OPTIONAL, 'Channel code', 'FASHION_WEB');
     }
 
-    protected function execute(InputInterface $input, OutputInterface $output)
+    protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        $io = new SymfonyStyle($input, $output);
+        $io = new SymfonyStyle(input: $input, output: $output);
 
-        $query = $input->getArgument('query');
-        $request = new Request(['query' => $query, '_channel_code' => $input->getOption('channel')]);
-        $this->requestStack->push($request);
-        /** @var DocumentableInterface $documentable */
-        $documentable = $this->documentableRegistry->get('search.documentable.monsieurbiz_product');
+        $query = $input->getArgument(name: 'query');
+
+        $channel = $input->getOption(name: 'channel');
+
+        $request = new Request(query: ['query' => $query, '_channel_code' => $channel]);
+
+        $this->requestStack->push(request: $request);
+
+        $documentable = $this->documentableRegistry->get(identifier: 'search.documentable.monsieurbiz_product');
+        Assert::isInstanceOf(value: $documentable, class: DocumentableInterface::class);
+
         $requestConfiguration = new RequestConfiguration(
-            $request,
-            RequestInterface::SEARCH_TYPE,
-            $documentable,
-            $this->searchSettings,
-            $this->channelContext
+            request: $request,
+            type: RequestInterface::SEARCH_TYPE,
+            documentable: $documentable,
+            searchSettings: $this->searchSettings,
+            channelContext: $this->channelContext,
         );
 
-        $result = $this->search->search($requestConfiguration);
+        $result = $this->search->search(requestConfiguration: $requestConfiguration);
 
-        $io->title('Search result for: ' . $query);
-        $io->section('Nb results: ' . $result->count());
+        $io->title(message: sprintf('Search result for: %s', $query));
+        $io->section(message: sprintf('Nb results: %s', $result->count()));
+
         $documents = [];
         foreach ($result->getIterator() as $resultItem) {
             /** @var ProductDTO $productDTO */
             $productDTO = $resultItem->getModel();
-            $documents[] = [$resultItem->getScore(), $productDTO->getData('id')];
+            $documents[] = [$resultItem->getScore(), $productDTO->getData(name: 'id')];
         }
+
         $io->table(['Score', 'Document ID'], $documents);
 
         return Command::SUCCESS;

@@ -21,10 +21,12 @@ final class EnabledFilter implements QueryFilterInterface
 {
     public function apply(BoolQuery $boolQuery, RequestConfiguration $requestConfiguration): void
     {
-        $qb = new QueryBuilder();
+        $queryBuilder = new QueryBuilder();
 
         $boolQuery->addFilter(
-            $qb->query()->term(['enabled' => ['value' => true]])
+            filter: $queryBuilder->query()->term(
+                term: ['enabled' => ['value' => true]],
+            )
         );
     }
 }

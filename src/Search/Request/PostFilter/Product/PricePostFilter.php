@@ -19,43 +19,53 @@ use MonsieurBiz\SyliusSearchPlugin\Search\Request\PostFilter\PostFilterInterface
 use MonsieurBiz\SyliusSearchPlugin\Search\Request\RequestConfiguration;
 use Sylius\Component\Channel\Context\ChannelContextInterface;
 
-final class PricePostFilter implements PostFilterInterface
-{
-    private ChannelContextInterface $channelContext;
+use function count;
 
-    public function __construct(ChannelContextInterface $channelContext)
-    {
-        $this->channelContext = $channelContext;
+final readonly class PricePostFilter implements PostFilterInterface
+{
+    public function __construct(
+        private ChannelContextInterface $channelContext,
+    ) {
     }
 
     public function apply(BoolQuery $boolQuery, RequestConfiguration $requestConfiguration): void
     {
-        $qb = new QueryBuilder();
-        $priceValue = $requestConfiguration->getAppliedFilters('price');
-        if (0 !== \count($priceValue)) {
-            $channelPriceFilter = $qb->query()
-                ->term(['prices.channel_code' => $this->channelContext->getChannel()->getCode()])
-            ;
+        $queryBuilder = new QueryBuilder();
+
+        $priceValue = $requestConfiguration->getAppliedFilters(type: 'price');
+
+        if (0 !== count(value: $priceValue)) {
+            $channelPriceFilter = $queryBuilder
+                ->query()
+                ->term(
+                    term: ['prices.channel_code' => $this->channelContext->getChannel()->getCode()],
+                );
+
             $conditions = [];
-            if (\array_key_exists('min', $priceValue)) {
+
+            if (\array_key_exists(key: 'min', array: $priceValue)) {
                 $conditions['gte'] = $priceValue['min'] * 100;
             }
-            if (\array_key_exists('max', $priceValue)) {
+
+            if (\array_key_exists(key: 'max', array: $priceValue)) {
                 $conditions['lte'] = $priceValue['max'] * 100;
             }
-            $priceQuery = $qb->query()
-                ->range('prices.price', $conditions)
-            ;
+
+            $priceQuery = $queryBuilder
+                ->query()
+                ->range(fieldName: 'prices.price', args: $conditions);
 
             $boolQuery->addMust(
-                $qb->query()
+                args: $queryBuilder->query()
                     ->nested()
-                    ->setPath('prices')
+                    ->setPath(path: 'prices')
                     ->setQuery(
-                        $qb->query()->bool()
-                            ->addMust($channelPriceFilter)
-                            ->addMust($priceQuery)
-                    )
+                        query: $queryBuilder
+                            ->query()
+                            ->bool()
+                            ->addMust(args: $channelPriceFilter)
+                            ->addMust(args: $priceQuery),
+                    ),
             );
         }
     }

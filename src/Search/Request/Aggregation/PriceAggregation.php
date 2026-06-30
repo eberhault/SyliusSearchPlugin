@@ -13,19 +13,18 @@ declare(strict_types=1);
 
 namespace MonsieurBiz\SyliusSearchPlugin\Search\Request\Aggregation;
 
+use Elastica\Aggregation\AbstractAggregation;
 use Elastica\QueryBuilder;
 use Sylius\Component\Channel\Context\ChannelContextInterface;
 
 final class PriceAggregation implements AggregationBuilderInterface
 {
-    private ChannelContextInterface $channelContext;
-
-    public function __construct(ChannelContextInterface $channelContext)
-    {
-        $this->channelContext = $channelContext;
+    public function __construct(
+        private readonly ChannelContextInterface $channelContext,
+    ) {
     }
 
-    public function build($aggregation, array $filters)
+    public function build(object|array|string $aggregation, array $filters): false|AbstractAggregation|null
     {
         if (!$this->isSupported($aggregation)) {
             return null;

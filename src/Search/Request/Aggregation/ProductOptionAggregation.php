@@ -13,6 +13,7 @@ declare(strict_types=1);
 
 namespace MonsieurBiz\SyliusSearchPlugin\Search\Request\Aggregation;
 
+use Elastica\Aggregation\AbstractAggregation;
 use Elastica\Query\AbstractQuery;
 use Elastica\QueryBuilder;
 use MonsieurBiz\SyliusSearchPlugin\Entity\Product\SearchableInterface;
@@ -27,12 +28,7 @@ final class ProductOptionAggregation implements AggregationBuilderInterface
         $this->enableStockFilter = $enableStockFilter;
     }
 
-    /**
-     * @SuppressWarnings(PHPMD.CyclomaticComplexity)
-     *
-     * @param mixed $aggregation
-     */
-    public function build($aggregation, array $filters)
+    public function build(object|array|string $aggregation, array $filters): false|AbstractAggregation|null
     {
         /** @var ProductOptionInterface&SearchableInterface $aggregation */
         if (!$this->isSupport($aggregation) || !$aggregation->isFilterable()) {

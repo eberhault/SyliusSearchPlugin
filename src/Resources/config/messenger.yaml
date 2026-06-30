@@ -7,5 +7,5 @@ framework:
           queue_name: 'monsieurbiz_search'
 
     routing:
-      MonsieurBiz\SyliusSearchPlugin\Message\ProductReindexFromTaxon: async_search
+      MonsieurBiz\SyliusSearchPlugin\Message\ProductReindexFromTaxonId: async_search
       MonsieurBiz\SyliusSearchPlugin\Message\ProductReindexFromIds: async_search

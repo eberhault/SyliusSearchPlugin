@@ -19,13 +19,17 @@ class ProductDTO extends Eater
 {
     public function getImagesByType(string $type): array
     {
-        $images = $this->getData('images') ?? [];
-        if (!\is_array($images)) {
+        $images = $this->getData(name: 'images') ?? [];
+
+        if (!is_array(value: $images)) {
             return [];
         }
 
-        return array_filter($images, function ($image) use ($type) {
-            return \is_object($image) && method_exists($image, 'getType') && $image->getType() === $type;
-        });
+        return array_filter(
+            array: $images,
+            callback: fn($image): bool => is_object(value: $image) &&
+                method_exists(object_or_class: $image, method: 'getType') &&
+                $type === $image->getType(),
+        );
     }
 }

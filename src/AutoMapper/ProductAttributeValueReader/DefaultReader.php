@@ -17,7 +17,7 @@ use Sylius\Component\Product\Model\ProductAttributeValueInterface;
 
 abstract class DefaultReader implements ReaderInterface
 {
-    public function getValue(ProductAttributeValueInterface $productAttribute)
+    public function getValue(ProductAttributeValueInterface $productAttribute): array|string
     {
         return (string) $productAttribute->getValue();
     }

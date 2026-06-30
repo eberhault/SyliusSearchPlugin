@@ -20,46 +20,54 @@ use MonsieurBiz\SyliusSearchPlugin\Search\Response\FilterBuilders\FilterBuilderI
 
 class MainTaxonFilterBuilder implements FilterBuilderInterface
 {
-    /**
-     * @SuppressWarnings(PHPMD.CyclomaticComplexity)
-     */
     public function build(
         DocumentableInterface $documentable,
         RequestConfiguration $requestConfiguration,
         string $aggregationCode,
         array $aggregationData
     ): ?array {
-        if (false === (bool) preg_match('/monsieurbiz_product$/', $documentable->getIndexCode()) || 'main_taxon' !== $aggregationCode) {
+        if (!str_ends_with($documentable->getIndexCode(), 'monsieurbiz_product') || 'main_taxon' !== $aggregationCode) {
             return null;
         }
 
         $taxonAggregation = $aggregationData['main_taxon'] ?? null;
+
         if ($taxonAggregation && $taxonAggregation['doc_count'] > 0) {
             $filter = new Filter(
-                $requestConfiguration,
-                'main_taxon',
-                'monsieurbiz_searchplugin.filters.taxon_filter',
-                $taxonAggregation['doc_count'],
-                'taxon'
+                requestConfiguration: $requestConfiguration,
+                code: 'main_taxon',
+                label: 'monsieurbiz_searchplugin.filters.taxon_filter',
+                count: $taxonAggregation['doc_count'],
+                type: 'taxon',
             );
 
             // Get main taxon code in aggregation
             $taxonCodeBuckets = $taxonAggregation['codes']['buckets'] ?? [];
+
             foreach ($taxonCodeBuckets as $taxonCodeBucket) {
                 if (0 === $taxonCodeBucket['doc_count']) {
                     continue;
                 }
+
                 $taxonCode = $taxonCodeBucket['key'];
+
                 $taxonName = null;
 
                 // Get main taxon level in aggregation
                 $taxonLevelBuckets = $taxonCodeBucket['levels']['buckets'] ?? [];
+
                 foreach ($taxonLevelBuckets as $taxonLevelBucket) {
                     // Get main taxon name in aggregation
                     $taxonNameBuckets = $taxonLevelBucket['names']['buckets'] ?? [];
+
                     foreach ($taxonNameBuckets as $taxonNameBucket) {
                         $taxonName = $taxonNameBucket['key'];
-                        $filter->addValue($taxonName ?? $taxonCode, $taxonCodeBucket['doc_count'], $taxonCode);
+
+                        $filter->addValue(
+                            label: $taxonName ?? $taxonCode,
+                            count: $taxonCodeBucket['doc_count'],
+                            value: $taxonCode,
+                        );
 
                         break 2;
                     }
@@ -67,7 +75,7 @@ class MainTaxonFilterBuilder implements FilterBuilderInterface
             }
 
             // Put taxon filter in first if contains value
-            if (0 !== \count($filter->getValues())) {
+            if (0 !== count(value: $filter->getValues())) {
                 return [$filter];
             }
         }

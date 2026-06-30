@@ -19,32 +19,31 @@ final class VariantDTO extends Eater
 {
     public function getCode(): ?string
     {
-        /** @phpstan-ignore-next-line */
-        return $this->getData('code');
+        return $this->getData(name: 'code');
     }
 
     public function setCode(string $code): void
     {
-        $this->setData('code', $code);
+        $this->setData(name: 'code', value: $code);
     }
 
     public function isEnabled(): bool
     {
-        return (bool) $this->getData('enabled');
+        return (bool) $this->getData(name: 'enabled');
     }
 
     public function setEnabled(bool $enabled): void
     {
-        $this->setData('enabled', $enabled);
+        $this->setData(name: 'enabled', value: $enabled);
     }
 
     public function isInStock(): bool
     {
-        return (bool) $this->getData('is_in_stock');
+        return (bool) $this->getData(name: 'is_in_stock');
     }
 
     public function setIsInStock(bool $isInStock): void
     {
-        $this->setData('is_in_stock', $isInStock);
+        $this->setData(name: 'is_in_stock', value: $isInStock);
     }
 }

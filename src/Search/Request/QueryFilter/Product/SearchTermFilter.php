@@ -20,49 +20,60 @@ use MonsieurBiz\SyliusSearchPlugin\Repository\ProductAttributeRepositoryInterfac
 use MonsieurBiz\SyliusSearchPlugin\Repository\ProductOptionRepositoryInterface;
 use MonsieurBiz\SyliusSearchPlugin\Search\Request\QueryFilter\SearchTermFilter as BaseSearchTermFilter;
 use MonsieurBiz\SyliusSearchPlugin\Search\Request\RequestConfiguration;
+use Sylius\Component\Product\Model\ProductAttributeInterface;
 
 final class SearchTermFilter extends BaseSearchTermFilter
 {
-    private ProductAttributeRepositoryInterface $productAttributeRepository;
-
-    private ProductOptionRepositoryInterface $productOptionRepository;
-
     public function __construct(
-        ProductAttributeRepositoryInterface $productAttributeRepository,
-        ProductOptionRepositoryInterface $productOptionRepository,
+        private readonly ProductAttributeRepositoryInterface $productAttributeRepository,
+        private readonly ProductOptionRepositoryInterface $productOptionRepository,
         array $fieldsToSearch,
         array $nestedFieldsToSearch = []
     ) {
         parent::__construct($fieldsToSearch, $nestedFieldsToSearch);
-        $this->productAttributeRepository = $productAttributeRepository;
-        $this->productOptionRepository = $productOptionRepository;
     }
 
     protected function addCustomFilters(BoolQuery $searchQuery, RequestConfiguration $requestConfiguration): void
     {
-        $this->addAttributesQueries($searchQuery, $requestConfiguration);
-        $this->addOptionsQueries($searchQuery, $requestConfiguration);
+        $this->addAttributesQueries(searchQuery: $searchQuery, requestConfiguration: $requestConfiguration);
+        $this->addOptionsQueries(searchQuery: $searchQuery, requestConfiguration: $requestConfiguration);
     }
 
     private function addAttributesQueries(BoolQuery $searchQuery, RequestConfiguration $requestConfiguration): void
     {
-        $qb = new QueryBuilder();
+        $queryBuilder = new QueryBuilder();
+
+        /** @var ProductAttributeInterface $productAttribute */
         foreach ($this->productAttributeRepository->findIsSearchableOrFilterable() as $productAttribute) {
             if (!$productAttribute->isSearchable()) {
                 continue;
             }
 
-            $attributeValueQuery = $qb->query()->multi_match();
-            $attributeValueQuery->setFields([
-                \sprintf('attributes.%s.value^%d', $productAttribute->getCode(), $productAttribute->getSearchWeight()),
-            ]);
-            $attributeValueQuery->setQuery($requestConfiguration->getQueryText());
-            $attributeValueQuery->setFuzziness(MultiMatch::FUZZINESS_AUTO);
+            $attributeValueQuery = $queryBuilder->query()->multi_match();
 
-            $attributeQuery = $qb->query()->nested();
-            $attributeQuery->setPath(\sprintf('attributes.%s', $productAttribute->getCode()))->setQuery($attributeValueQuery);
+            $attributeValueQuery->setFields(
+                fields: [
+                    \sprintf(
+                        'attributes.%s.value^%d',
+                        $productAttribute->getCode(),
+                        $productAttribute->getSearchWeight(),
+                    ),
+                ],
+            );
 
-            $searchQuery->addShould($attributeQuery);
+            $attributeValueQuery->setQuery(query: $requestConfiguration->getQueryText());
+
+            $attributeValueQuery->setFuzziness(fuzziness: MultiMatch::FUZZINESS_AUTO);
+
+            $attributeQuery = $queryBuilder->query()->nested();
+
+            $attributeQuery
+                ->setPath(
+                    path: sprintf('attributes.%s', $productAttribute->getCode()),
+                )
+                ->setQuery($attributeValueQuery);
+
+            $searchQuery->addShould(args: $attributeQuery);
         }
     }
 

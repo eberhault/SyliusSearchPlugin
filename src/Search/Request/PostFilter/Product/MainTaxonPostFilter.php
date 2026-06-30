@@ -23,26 +23,30 @@ final class MainTaxonPostFilter implements PostFilterInterface
 {
     public function apply(BoolQuery $boolQuery, RequestConfiguration $requestConfiguration): void
     {
-        $qb = new QueryBuilder();
-        foreach ($requestConfiguration->getAppliedFilters('taxon') as $field => $values) {
-            $mainTaxonQuery = $qb->query()
-                ->bool()
-            ;
-            $values = array_filter($values) ?? [];
+        $queryBuilder = new QueryBuilder();
+
+        foreach ($requestConfiguration->getAppliedFilters(type: 'taxon') as $field => $values) {
+            $mainTaxonQuery = $queryBuilder->query()->bool();
+
+            $values = array_filter(array: $values) ?? [];
+
             foreach ($values as $value) {
                 $mainTaxonQuery->addShould(
-                    $qb->query()
+                    args: $queryBuilder
+                        ->query()
                         ->term()
-                        ->setTerm(\sprintf('%s.code', $field), SlugHelper::toLabel($value))
+                        ->setTerm(
+                            key: \sprintf('%s.code', $field),
+                            value: SlugHelper::toLabel($value),
+                        ),
                 );
             }
             $boolQuery->addMust(
-                $qb->query()
+                args: $queryBuilder
+                    ->query()
                     ->nested()
-                    ->setPath($field)
-                    ->setQuery(
-                        $mainTaxonQuery
-                    )
+                    ->setPath(path: $field)
+                    ->setQuery(query: $mainTaxonQuery),
             );
         }
     }

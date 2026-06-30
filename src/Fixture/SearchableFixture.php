@@ -20,9 +20,6 @@ use Symfony\Component\Config\Definition\Builder\ArrayNodeDefinition;
 
 class SearchableFixture extends AbstractResourceFixture implements SearchableFixtureInterface
 {
-    /**
-     * SearchableFixture constructor.
-     */
     public function __construct(
         EntityManagerInterface $productManager,
         SearchableFixtureFactoryInterface $exampleFactory
@@ -30,27 +27,20 @@ class SearchableFixture extends AbstractResourceFixture implements SearchableFix
         parent::__construct($productManager, $exampleFactory);
     }
 
-    /**
-     * @inheritdoc
-     */
     public function getName(): string
     {
         return 'monsieurbiz_sylius_search';
     }
 
-    /**
-     * @inheritdoc
-     */
     protected function configureResourceNode(ArrayNodeDefinition $resourceNode): void
     {
-        /** @phpstan-ignore-next-line */
         $resourceNode
             ->children()
-            ->scalarNode('attribute')->end()
-            ->scalarNode('option')->end()
-            ->booleanNode('filterable')->defaultValue(true)->end()
-            ->booleanNode('searchable')->defaultValue(true)->end()
-            ->integerNode('search_weight')->defaultValue(1)->end()
+            ->scalarNode(name: 'attribute')->end()
+            ->scalarNode(name: 'option')->end()
+            ->booleanNode(name: 'filterable')->defaultValue(value: true)->end()
+            ->booleanNode(name: 'searchable')->defaultValue(value: true)->end()
+            ->integerNode(name: 'search_weight')->defaultValue(value: 1)->end()
         ;
     }
 }

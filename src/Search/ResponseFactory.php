@@ -17,22 +17,23 @@ use MonsieurBiz\SyliusSearchPlugin\Model\Documentable\DocumentableInterface;
 use MonsieurBiz\SyliusSearchPlugin\Search\Request\RequestConfiguration;
 use Pagerfanta\Adapter\AdapterInterface;
 
-class ResponseFactory
+readonly class ResponseFactory
 {
-    private iterable $filterBuilders;
-
-    public function __construct(iterable $filterBuilders)
-    {
-        $this->filterBuilders = $filterBuilders;
+    public function __construct(
+        private iterable $filterBuilders,
+    ) {
     }
 
-    public function build(RequestConfiguration $requestConfiguration, AdapterInterface $adapter, DocumentableInterface $documentable): ResponseInterface
-    {
+    public function build(
+        RequestConfiguration $requestConfiguration,
+        AdapterInterface $adapter,
+        DocumentableInterface $documentable,
+    ): ResponseInterface {
         return new Response(
-            $requestConfiguration,
-            $adapter,
-            $documentable,
-            $this->filterBuilders
+            requestConfiguration: $requestConfiguration,
+            adapter: $adapter,
+            documentable: $documentable,
+            filterBuilders: $this->filterBuilders,
         );
     }
 }

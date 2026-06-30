@@ -9,21 +9,20 @@ parameters:
   monsieurbiz.search.product.enable_stock_filter: false
   monsieurbiz.search.product.is_in_stock_scoring_boost: 0 # The value is used to multiply the document score (0 to disable the scoring boost)
   monsieurbiz.search.product.apply_is_in_stock_scoring_boost_on:
-      - !php/const MonsieurBiz\SyliusSearchPlugin\Search\Request\RequestInterface::SEARCH_TYPE
-      - !php/const MonsieurBiz\SyliusSearchPlugin\Search\Request\RequestInterface::TAXON_TYPE
-      - !php/const MonsieurBiz\SyliusSearchPlugin\Search\Request\RequestInterface::INSTANT_TYPE
-  monsieurbiz.search.product.search.fields_to_search: 
-      - 'name^5'
-      - 'description'
+    - !php/const MonsieurBiz\SyliusSearchPlugin\Search\Request\RequestInterface::SEARCH_TYPE
+    - !php/const MonsieurBiz\SyliusSearchPlugin\Search\Request\RequestInterface::TAXON_TYPE
+    - !php/const MonsieurBiz\SyliusSearchPlugin\Search\Request\RequestInterface::INSTANT_TYPE
+  monsieurbiz.search.product.search.fields_to_search:
+    - 'name^5'
+    - 'description'
   monsieurbiz.search.product.search.nested_fields_to_search: []
-  monsieurbiz.search.product.instant.fields_to_search: 
-      - 'name^5'
-      - 'name.autocomplete'
-      - 'description'
+  monsieurbiz.search.product.instant.fields_to_search:
+    - 'name^5'
+    - 'name.autocomplete'
+    - 'description'
   monsieurbiz.search.product.instant.nested_fields_to_search: []
 
 services:
-
   _defaults:
     autowire: true
     autoconfigure: true
@@ -34,15 +33,20 @@ services:
       $productVariantResolver: '@MonsieurBiz\SyliusSearchPlugin\Resolver\CheapestProductVariantResolver'
       $documentableRegistry: '@monsieurbiz.search.registry.documentable'
       $enableStockFilter: '%monsieurbiz.search.product.enable_stock_filter%'
+      $configuration: '@MonsieurBiz\SyliusSearchPlugin\AutoMapper\Configuration'
+      $availabilityChecker: '@sylius.checker.inventory.availability'
+      $channelSimulationContext: '@MonsieurBiz\SyliusSearchPlugin\Context\ChannelSimulationContext'
 
   _instanceof:
     MonsieurBiz\SyliusSearchPlugin\AutoMapper\ProductAttributeValueReader\ReaderInterface:
       tags: [ 'monsieurbiz.search.automapper.product_attribute_value_reader' ]
     MonsieurBiz\SyliusSearchPlugin\Fixture\SearchableFixtureInterface:
       tags: ['sylius_fixtures.fixture']
+    MonsieurBiz\SyliusSearchPlugin\AutoMapper\Mapper\MapperInterface:
+      tags: ['monsieurbiz.search.mapper']
 
   MonsieurBiz\SyliusSearchPlugin\:
-    resource: '../../*'
+    resource: '../../'
     exclude: '../../{Entity,Migrations,Tests,Kernel.php}'
 
   MonsieurBiz\SyliusSearchPlugin\Form\Extension\:
@@ -67,7 +71,7 @@ services:
   MonsieurBiz\SyliusSearchPlugin\Search\ClientFactory:
     arguments:
       $config:
-        url: '%monsieurbiz_search_elasticsearch_url%'
+        hosts: [ '%monsieurbiz_search_elasticsearch_url%' ]
 
   MonsieurBiz\SyliusSearchPlugin\Repository\ProductAttributeRepository:
     arguments:
@@ -95,11 +99,6 @@ services:
   MonsieurBiz\SyliusSearchPlugin\Search\Request\RequestHandler:
     arguments:
       $searchRequests: !tagged_iterator { tag: 'monsieurbiz.search.request' }
-
-  # Define product attribute value readers
-  MonsieurBiz\SyliusSearchPlugin\AutoMapper\ProductAttributeValueConfiguration:
-    arguments:
-      $productAttributeValueReaders: !tagged_iterator { tag: 'monsieurbiz.search.automapper.product_attribute_value_reader', default_index_method: 'getReaderCode' }
 
   #
   MonsieurBiz\SyliusSearchPlugin\EventSubscriber\AppendProductAttributeMappingSubscriber:
@@ -263,7 +262,7 @@ services:
     class: MonsieurBiz\SyliusSearchPlugin\Checker\ElasticsearchChecker
     arguments:
       $config:
-        url: '%monsieurbiz_search_elasticsearch_url%'
+        hosts: [ '%monsieurbiz_search_elasticsearch_url%' ]
 
   MonsieurBiz\SyliusSearchPlugin\Twig\Extension\RenderSearchForm:
     arguments:

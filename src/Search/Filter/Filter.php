@@ -19,40 +19,19 @@ use MonsieurBiz\SyliusSearchPlugin\Search\Response\FilterInterface;
 
 class Filter implements FilterInterface
 {
-    /**
-     * @var string
-     */
-    private $code;
-
-    /**
-     * @var string
-     */
-    private $label;
-
-    /**
-     * @var FilterValue[]
-     */
-    private $values = [];
-
-    /**
-     * @var int
-     */
-    private $count;
-
-    private string $type;
-
-    private RequestConfiguration $requestConfiguration;
+    /** @var FilterValue[] */
+    private array $values = [];
 
     /**
      * Filter constructor.
      */
-    public function __construct(RequestConfiguration $requestConfiguration, string $code, string $label, int $count, string $type = '')
-    {
-        $this->code = $code;
-        $this->label = $label;
-        $this->count = $count;
-        $this->type = $type;
-        $this->requestConfiguration = $requestConfiguration;
+    public function __construct(
+        private readonly RequestConfiguration $requestConfiguration,
+        private readonly string $code,
+        private readonly string $label,
+        private readonly int $count,
+        private string $type = '',
+    ) {
     }
 
     public function getCode(): string
@@ -65,9 +44,7 @@ class Filter implements FilterInterface
         return $this->label;
     }
 
-    /**
-     * @return FilterValue[]
-     */
+    /** @return FilterValue[] */
     public function getValues(): array
     {
         return $this->values;
@@ -76,10 +53,14 @@ class Filter implements FilterInterface
     public function addValue(string $label, int $count, ?string $value = null): void
     {
         $this->values[] = new FilterValue(
-            $label,
-            $count,
-            $value,
-            \in_array(SlugHelper::toSlug($value ?? $label), $this->getCurrentValues(), true)
+            label: $label,
+            count: $count,
+            value: $value,
+            isApplied: in_array(
+                needle: SlugHelper::toSlug(label: $value ?? $label),
+                haystack: $this->getCurrentValues(),
+                strict: true,
+            )
         );
     }
 
@@ -100,9 +81,10 @@ class Filter implements FilterInterface
 
     public function getAppliedValues(): array
     {
-        return array_filter($this->getValues(), function (FilterValue $filterValue): bool {
-            return $filterValue->isApplied();
-        });
+        return array_filter(
+            array: $this->getValues(),
+            callback: static fn(FilterValue $filterValue): bool => $filterValue->isApplied(),
+        );
     }
 
     protected function getCurrentValues(): array

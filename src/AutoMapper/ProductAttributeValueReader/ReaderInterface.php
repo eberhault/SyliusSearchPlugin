@@ -19,8 +19,5 @@ interface ReaderInterface
 {
     public static function getReaderCode(): string;
 
-    /**
-     * @return string|array
-     */
-    public function getValue(ProductAttributeValueInterface $productAttribute);
+    public function getValue(ProductAttributeValueInterface $productAttribute): array|string;
 }

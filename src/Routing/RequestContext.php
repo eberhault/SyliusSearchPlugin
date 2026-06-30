@@ -19,13 +19,9 @@ use Symfony\Component\Routing\RequestContext as BaseRequestContext;
 
 class RequestContext extends BaseRequestContext
 {
-    private BaseRequestContext $decorated;
-
-    private ElasticsearchCheckerInterface $elasticsearchChecker;
-
     public function __construct(
-        BaseRequestContext $decorated,
-        ElasticsearchCheckerInterface $elasticsearchChecker
+        private readonly BaseRequestContext $decorated,
+        private readonly ElasticsearchCheckerInterface $elasticsearchChecker
     ) {
         parent::__construct(
             $decorated->getBaseUrl(),
@@ -37,8 +33,6 @@ class RequestContext extends BaseRequestContext
             $decorated->getPathInfo(),
             $decorated->getQueryString()
         );
-        $this->decorated = $decorated;
-        $this->elasticsearchChecker = $elasticsearchChecker;
     }
 
     public function checkElasticsearch(): bool
@@ -54,10 +48,13 @@ class RequestContext extends BaseRequestContext
     public function __call(string $name, array $arguments)
     {
         $callback = [$this->decorated, $name];
-        if (\is_callable($callback)) {
-            return \call_user_func($callback, ...$arguments);
+
+        if (is_callable(value: $callback)) {
+            return call_user_func($callback, ...$arguments);
         }
 
-        throw new Exception(\sprintf('Method %s not found for class "%s"', $name, \get_class($this->decorated)));
+        throw new Exception(
+            \sprintf('Method %s not found for class "%s"', $name, get_class($this->decorated)),
+        );
     }
 }

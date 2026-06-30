@@ -23,20 +23,16 @@ use Sylius\Component\Registry\ServiceRegistryInterface;
 
 final class Search extends SearchRequest
 {
-    private ProductAttributeRepositoryInterface $productAttributeRepository;
-
-    private ProductOptionRepositoryInterface $productOptionRepository;
-
     public function __construct(
         ServiceRegistryInterface $documentableRegistry,
-        AggregationBuilder $aggregationBuilder,
+        private readonly AggregationBuilder $aggregationBuilder,
         string $documentType,
         iterable $queryFilters,
         iterable $postFilters,
         iterable $sorters,
         iterable $functionScores,
-        ProductAttributeRepositoryInterface $productAttributeRepository,
-        ProductOptionRepositoryInterface $productOptionRepository
+        private readonly ProductAttributeRepositoryInterface $productAttributeRepository,
+        private readonly ProductOptionRepositoryInterface $productOptionRepository
     ) {
         parent::__construct(
             $documentableRegistry,
@@ -47,27 +43,25 @@ final class Search extends SearchRequest
             $sorters,
             $functionScores
         );
-
-        $this->productAttributeRepository = $productAttributeRepository;
-        $this->productOptionRepository = $productOptionRepository;
     }
 
     protected function addAggregations(Query $query, BoolQuery $postFilter): void
     {
         /** @var array $mustParam */
-        $mustParam = $postFilter->hasParam('must') ? $postFilter->getParam('must') : [];
+        $mustParam = $postFilter->hasParam(key: 'must') ? $postFilter->getParam(key: 'must') : [];
+
         $aggregations = $this->aggregationBuilder->buildAggregations(
-            [
+            aggregations: [
                 'main_taxon',
                 'price',
                 $this->productAttributeRepository->findIsSearchableOrFilterable(),
                 $this->productOptionRepository->findIsSearchableOrFilterable(),
             ],
-            $mustParam
+            filters: $mustParam,
         );
 
         foreach ($aggregations as $aggregation) {
-            $query->addAggregation($aggregation);
+            $query->addAggregation(agg: $aggregation);
         }
     }
 }

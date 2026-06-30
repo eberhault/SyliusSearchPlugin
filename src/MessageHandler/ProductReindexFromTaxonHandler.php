@@ -15,48 +15,48 @@ namespace MonsieurBiz\SyliusSearchPlugin\MessageHandler;
 
 use Doctrine\ORM\EntityRepository;
 use MonsieurBiz\SyliusSearchPlugin\Index\IndexerInterface;
-use MonsieurBiz\SyliusSearchPlugin\Message\ProductReindexFromTaxon;
+use MonsieurBiz\SyliusSearchPlugin\Message\ProductReindexFromTaxonId;
 use MonsieurBiz\SyliusSearchPlugin\Model\Documentable\DocumentableInterface;
 use Sylius\Component\Core\Repository\ProductRepositoryInterface;
 use Sylius\Component\Registry\ServiceRegistryInterface;
 use Symfony\Component\Messenger\Handler\MessageHandlerInterface;
 
-class ProductReindexFromTaxonHandler implements MessageHandlerInterface
+readonly class ProductReindexFromTaxonHandler implements MessageHandlerInterface
 {
-    private ProductRepositoryInterface $productRepository;
-
-    private IndexerInterface $indexer;
-
-    private ServiceRegistryInterface $documentableRegistry;
-
     public function __construct(
-        ProductRepositoryInterface $productRepository,
-        IndexerInterface $indexer,
-        ServiceRegistryInterface $documentableRegistry
+        private ProductRepositoryInterface $productRepository,
+        private IndexerInterface $indexer,
+        private ServiceRegistryInterface $documentableRegistry
     ) {
-        $this->productRepository = $productRepository;
-        $this->indexer = $indexer;
-        $this->documentableRegistry = $documentableRegistry;
     }
 
-    public function __invoke(ProductReindexFromTaxon $message): void
+    public function __invoke(ProductReindexFromTaxonId $message): void
     {
         /** @var DocumentableInterface $documentable */
-        $documentable = $this->documentableRegistry->get('search.documentable.monsieurbiz_product');
+        $documentable = $this->documentableRegistry->get(identifier: 'search.documentable.monsieurbiz_product');
+
         if (!$this->productRepository instanceof EntityRepository) {
             return;
         }
 
+        $queryBuilder = $this->productRepository->createQueryBuilder(alias: 'o');
+
         /** @var array $products */
-        $products = $this->productRepository->createQueryBuilder('o')
-                ->innerJoin('o.productTaxons', 'productTaxon')
-                ->andWhere('productTaxon.taxon = :taxonId')
-                ->setParameter('taxonId', $message->getTaxonId())->getQuery()->getResult()
-        ;
+        $products = $queryBuilder
+            ->innerJoin(
+                join: 'o.productTaxons',
+                alias: 'productTaxon',
+            )
+            ->where(
+                $queryBuilder->expr()->eq('productTaxon.taxon', ':taxonId'),
+            )
+            ->setParameter(key: 'taxonId', value: $message->getTaxonId())
+            ->getQuery()
+            ->getResult();
 
         $this->indexer->indexByDocuments(
-            $documentable,
-            $products
+            documentable: $documentable,
+            documents: $products,
         );
     }
 }

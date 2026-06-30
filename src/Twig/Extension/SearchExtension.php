@@ -20,14 +20,14 @@ use Twig\TwigFunction;
 class SearchExtension extends AbstractExtension
 {
     public function __construct(
-        private ElasticsearchCheckerInterface $elasticsearchChecker,
+        private readonly ElasticsearchCheckerInterface $elasticsearchChecker,
     ) {
     }
 
-    public function getFunctions()
+    public function getFunctions(): array
     {
         return [
-            new TwigFunction('is_elasticsearch_available', [$this, 'isElasticsearchAvailable']),
+            new TwigFunction(name: 'is_elasticsearch_available', callable: $this->isElasticsearchAvailable(...)),
         ];
     }
 

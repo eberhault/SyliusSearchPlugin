@@ -21,33 +21,18 @@ class Documentable implements PrefixedDocumentableInterface
     use DocumentableDatasourceTrait;
     use DocumentableMappingProviderTrait;
 
-    private string $indexCode;
-
-    private string $sourceClass;
-
-    private string $targetClass;
-
-    /**
-     * @var array<string, string>
-     */
-    private array $templates;
-
-    private array $limits;
-
     private ?string $prefix = null;
 
+    /**
+     * @param array<string, string> $templates
+     */
     public function __construct(
-        string $indexCode,
-        string $sourceClass,
-        string $targetClass,
-        array $templates,
-        array $limits
+        private readonly string $indexCode,
+        private readonly string $sourceClass,
+        private readonly string $targetClass,
+        private readonly array $templates,
+        private readonly array $limits
     ) {
-        $this->indexCode = $indexCode;
-        $this->sourceClass = $sourceClass;
-        $this->targetClass = $targetClass;
-        $this->templates = $templates;
-        $this->limits = $limits;
     }
 
     public function getIndexCode(): string
@@ -67,10 +52,10 @@ class Documentable implements PrefixedDocumentableInterface
 
     public function isTranslatable(): bool
     {
-        $interface = (array) class_implements($this->getSourceClass());
+        $interface = (array)class_implements(object_or_class: $this->getSourceClass());
 
-        return \in_array(TranslatableInterface::class, $interface, true)
-            || \in_array(OldTranslatableInterface::class, $interface, true);
+        return \in_array(needle: TranslatableInterface::class, haystack: $interface, strict: true)
+            || \in_array(needle: OldTranslatableInterface::class, haystack: $interface, strict: true);
     }
 
     public function getTemplate(string $type): ?string

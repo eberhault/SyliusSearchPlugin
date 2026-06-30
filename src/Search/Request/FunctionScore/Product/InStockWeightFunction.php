@@ -18,22 +18,13 @@ use Elastica\QueryBuilder;
 use MonsieurBiz\SyliusSearchPlugin\Search\Request\FunctionScore\FunctionScoreInterface;
 use MonsieurBiz\SyliusSearchPlugin\Search\Request\RequestConfiguration;
 
-class InStockWeightFunction implements FunctionScoreInterface
+readonly class InStockWeightFunction implements FunctionScoreInterface
 {
-    private bool $enableStockFilter;
-
-    private int $inStockWeight;
-
-    private array $applyOnRequestTypes;
-
     public function __construct(
-        bool $enableStockFilter,
-        int $inStockWeight,
-        array $applyOnRequestTypes
+        private bool $enableStockFilter,
+        private int $inStockWeight,
+        private array $applyOnRequestTypes
     ) {
-        $this->enableStockFilter = $enableStockFilter;
-        $this->inStockWeight = $inStockWeight;
-        $this->applyOnRequestTypes = $applyOnRequestTypes;
     }
 
     public function addFunctionScore(FunctionScore $functionScore, RequestConfiguration $requestConfiguration): void
@@ -41,16 +32,24 @@ class InStockWeightFunction implements FunctionScoreInterface
         if (
             $this->enableStockFilter
             || 1 > $this->inStockWeight
-            || !\in_array($requestConfiguration->getType(), $this->applyOnRequestTypes, true)
+            || !in_array(needle: $requestConfiguration->getType(), haystack: $this->applyOnRequestTypes, strict: true)
         ) {
             return;
         }
 
-        $qb = new QueryBuilder();
+        $queryBuilder = new QueryBuilder();
+
+        $filter = $queryBuilder
+            ->query()
+            ->nested()
+            ->setPath(path: 'variants')
+            ->setQuery(
+                query: $queryBuilder->query()->term(term: ['variants.is_in_stock' => true]),
+            );
+
         $functionScore->addWeightFunction(
-            $this->inStockWeight,
-            $qb->query()->nested()->setPath('variants')
-                ->setQuery($qb->query()->term(['variants.is_in_stock' => true]))
+            weight: $this->inStockWeight,
+            filter: $filter,
         );
     }
 }

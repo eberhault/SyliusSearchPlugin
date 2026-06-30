@@ -23,19 +23,28 @@ final class AttributesPostFilter implements PostFilterInterface
 {
     public function apply(BoolQuery $boolQuery, RequestConfiguration $requestConfiguration): void
     {
-        $qb = new QueryBuilder();
-        foreach ($requestConfiguration->getAppliedFilters('attributes') as $field => $values) {
-            $attributeValueQuery = $qb->query()->bool();
+        $queryBuilder = new QueryBuilder();
+
+        foreach ($requestConfiguration->getAppliedFilters(type: 'attributes') as $field => $values) {
+            $attributeValueQuery = $queryBuilder->query()->bool();
 
             foreach ($values as $value) {
-                $termQuery = $qb->query()->term([\sprintf('attributes.%s.value.keyword', $field) => SlugHelper::toLabel($value)]);
-                $attributeValueQuery->addShould($termQuery); // todo configure the "and" or "or"
+                $termQuery = $queryBuilder
+                    ->query()
+                    ->term(
+                        term: [sprintf('attributes.%s.value.keyword', $field) => SlugHelper::toLabel($value)],
+                    );
+
+                $attributeValueQuery->addShould(args: $termQuery); // todo configure the "and" or "or"
             }
 
-            $attributeQuery = $qb->query()->nested();
-            $attributeQuery->setPath(\sprintf('attributes.%s', $field))->setQuery($attributeValueQuery);
+            $attributeQuery = $queryBuilder->query()->nested();
 
-            $boolQuery->addMust($attributeQuery);
+            $attributeQuery
+                ->setPath(sprintf('attributes.%s', $field))
+                ->setQuery(query: $attributeValueQuery);
+
+            $boolQuery->addMust(args: $attributeQuery);
         }
     }
 }

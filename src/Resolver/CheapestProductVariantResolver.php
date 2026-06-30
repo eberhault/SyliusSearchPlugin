@@ -20,21 +20,17 @@ use Sylius\Component\Product\Model\ProductInterface;
 use Sylius\Component\Product\Model\ProductVariantInterface;
 use Sylius\Component\Product\Resolver\ProductVariantResolverInterface;
 
-class CheapestProductVariantResolver implements ProductVariantResolverInterface
+readonly class CheapestProductVariantResolver implements ProductVariantResolverInterface
 {
-    private ChannelContextInterface $channelContext;
-
-    public function __construct(ChannelContextInterface $channelContext)
-    {
-        $this->channelContext = $channelContext;
+    public function __construct(
+        private ChannelContextInterface $channelContext,
+    ) {
     }
 
-    /**
-     * @SuppressWarnings(PHPMD.CyclomaticComplexity)
-     */
     public function getVariant(ProductInterface $subject): ?ProductVariantInterface
     {
         $channel = $this->channelContext->getChannel();
+
         if ($subject->getEnabledVariants()->isEmpty() || !$channel instanceof ChannelInterface) {
             return null;
         }
@@ -42,13 +38,18 @@ class CheapestProductVariantResolver implements ProductVariantResolverInterface
         $cheapestVariant = null;
         $cheapestPrice = null;
         $variants = $subject->getEnabledVariants();
+
         foreach ($variants as $variant) {
             if (!$variant instanceof ModelProductVariantInterface) {
                 continue;
             }
-            if (null === ($channelPrice = $variant->getChannelPricingForChannel($channel))) {
+
+            $channelPrice = $variant->getChannelPricingForChannel($channel);
+
+            if (null === $channelPrice) {
                 continue;
             }
+
             if (null === $cheapestPrice || $channelPrice->getPrice() < $cheapestPrice) {
                 $cheapestPrice = $channelPrice->getPrice();
                 $cheapestVariant = $variant;

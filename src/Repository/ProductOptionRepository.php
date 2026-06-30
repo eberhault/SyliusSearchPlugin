@@ -15,24 +15,31 @@ namespace MonsieurBiz\SyliusSearchPlugin\Repository;
 
 use Sylius\Bundle\ResourceBundle\Doctrine\ORM\EntityRepository;
 
-class ProductOptionRepository implements ProductOptionRepositoryInterface
+readonly class ProductOptionRepository implements ProductOptionRepositoryInterface
 {
-    private EntityRepository $productOptionRepository;
-
-    public function __construct(EntityRepository $productOptionRepository)
-    {
-        $this->productOptionRepository = $productOptionRepository;
+    public function __construct(
+        private EntityRepository $productOptionRepository,
+    ) {
     }
 
     public function findIsSearchableOrFilterable(): array
     {
-        /** @phpstan-ignore-next-line */
-        return $this->productOptionRepository->createQueryBuilder('o')
-            ->innerJoin('o.translations', 'translation')
-            ->andWhere('o.searchable = true')
-            ->orWhere('o.filterable = true')
+        $queryBuilder = $this->productOptionRepository->createQueryBuilder(alias: 'product_option');
+
+        return $queryBuilder
+            ->innerJoin(
+                join: 'product_option.translations',
+                alias: 'product_option_translations',
+            )
+            ->where(
+                $queryBuilder->expr()->andX(
+                    $queryBuilder->expr()->eq(x: 'product_option.searchable', y: ':searchable'),
+                    $queryBuilder->expr()->eq(x: 'product_option.filterable', y: ':filterable')
+                )
+            )
+            ->setParameter(key: 'searchable', value: true)
+            ->setParameter(key: 'filterable', value: true)
             ->getQuery()
-            ->getResult()
-        ;
+            ->getResult();
     }
 }

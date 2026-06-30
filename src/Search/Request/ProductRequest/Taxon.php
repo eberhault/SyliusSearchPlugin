@@ -17,6 +17,7 @@ use Elastica\Query;
 use MonsieurBiz\SyliusSearchPlugin\Repository\ProductAttributeRepositoryInterface;
 use MonsieurBiz\SyliusSearchPlugin\Repository\ProductOptionRepositoryInterface;
 use MonsieurBiz\SyliusSearchPlugin\Search\Request\AggregationBuilder;
+use MonsieurBiz\SyliusSearchPlugin\Search\Request\RequestConfiguration;
 use MonsieurBiz\SyliusSearchPlugin\Search\Request\Taxon as TaxonRequest;
 use RuntimeException;
 use Sylius\Component\Channel\Context\ChannelContextInterface;
@@ -24,24 +25,17 @@ use Sylius\Component\Registry\ServiceRegistryInterface;
 
 final class Taxon extends TaxonRequest
 {
-    private ProductAttributeRepositoryInterface $productAttributeRepository;
-
-    private ProductOptionRepositoryInterface $productOptionRepository;
-
-    /**
-     * @SuppressWarnings(PHPMD.ExcessiveParameterList)
-     */
     public function __construct(
         ServiceRegistryInterface $documentableRegistry,
         ChannelContextInterface $channelContext,
-        AggregationBuilder $aggregationBuilder,
+        private AggregationBuilder $aggregationBuilder,
         string $documentType,
         iterable $queryFilters,
         iterable $postFilters,
         iterable $sorters,
         iterable $functionScores,
-        ProductAttributeRepositoryInterface $productAttributeRepository,
-        ProductOptionRepositoryInterface $productOptionRepository
+        private readonly ProductAttributeRepositoryInterface $productAttributeRepository,
+        private readonly ProductOptionRepositoryInterface $productOptionRepository
     ) {
         parent::__construct(
             $documentableRegistry,
@@ -53,30 +47,29 @@ final class Taxon extends TaxonRequest
             $sorters,
             $functionScores
         );
-
-        $this->productAttributeRepository = $productAttributeRepository;
-        $this->productOptionRepository = $productOptionRepository;
     }
 
     protected function addAggregations(Query $query, Query\BoolQuery $postFilter): void
     {
-        if (null === $this->configuration) {
-            throw new RuntimeException('Missing request configuration');
+        if (!$this->configuration instanceof RequestConfiguration) {
+            throw new RuntimeException(message: 'Missing request configuration');
         }
+
         /** @var array $mustParam */
-        $mustParam = $postFilter->hasParam('must') ? $postFilter->getParam('must') : [];
+        $mustParam = $postFilter->hasParam(key: 'must') ? $postFilter->getParam(key: 'must') : [];
+
         $aggregations = $this->aggregationBuilder->buildAggregations(
-            [
+            aggregations: [
                 ['taxons' => $this->configuration->getTaxon()],
                 'price',
                 $this->productAttributeRepository->findIsSearchableOrFilterable(),
                 $this->productOptionRepository->findIsSearchableOrFilterable(),
             ],
-            $mustParam
+            filters: $mustParam,
         );
 
         foreach ($aggregations as $aggregation) {
-            $query->addAggregation($aggregation);
+            $query->addAggregation(agg: $aggregation);
         }
     }
 }

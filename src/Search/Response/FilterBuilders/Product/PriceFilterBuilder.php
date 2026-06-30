@@ -20,31 +20,30 @@ use MonsieurBiz\SyliusSearchPlugin\Search\Response\FilterBuilders\FilterBuilderI
 
 class PriceFilterBuilder implements FilterBuilderInterface
 {
-    /**
-     * @SuppressWarnings(PHPMD.CyclomaticComplexity)
-     */
     public function build(
         DocumentableInterface $documentable,
         RequestConfiguration $requestConfiguration,
         string $aggregationCode,
         array $aggregationData
     ): ?array {
-        if (false === (bool) preg_match('/monsieurbiz_product$/', $documentable->getIndexCode()) || 'prices' !== $aggregationCode) {
+        if (!str_ends_with($documentable->getIndexCode(), 'monsieurbiz_product') || 'prices' !== $aggregationCode) {
             return null;
         }
 
         $filter = null;
+
         $priceAggregation = $aggregationData['prices']['prices'] ?? null;
+
         if ($priceAggregation && $priceAggregation['doc_count'] > 0) {
             $filter = [
                 new RangeFilter(
-                    $requestConfiguration,
-                    'price',
-                    'monsieurbiz_searchplugin.filters.price_filter',
-                    'monsieurbiz_searchplugin.filters.price_min',
-                    'monsieurbiz_searchplugin.filters.price_max',
-                    (int) floor(($priceAggregation['prices_stats']['min'] ?? 0) / 100),
-                    (int) ceil(($priceAggregation['prices_stats']['max'] ?? 0) / 100)
+                    requestConfiguration: $requestConfiguration,
+                    code: 'price',
+                    label: 'monsieurbiz_searchplugin.filters.price_filter',
+                    minLabel: 'monsieurbiz_searchplugin.filters.price_min',
+                    maxLabel: 'monsieurbiz_searchplugin.filters.price_max',
+                    min: (int) floor(num: ($priceAggregation['prices_stats']['min'] ?? 0) / 100),
+                    max: (int) ceil(num: ($priceAggregation['prices_stats']['max'] ?? 0) / 100)
                 ),
             ];
         }

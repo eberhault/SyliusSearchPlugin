@@ -18,49 +18,22 @@ use MonsieurBiz\SyliusSearchPlugin\Search\Response\FilterInterface;
 
 class RangeFilter implements FilterInterface
 {
-    /**
-     * @var string
-     */
-    private $code;
-
-    /**
-     * @var string
-     */
-    private $label;
-
-    /**
-     * @var string
-     */
-    private $minLabel;
-
-    /**
-     * @var int
-     */
-    private $min;
-
-    /**
-     * @var int
-     */
-    private $max;
-
     private array $values = [];
-
-    private RequestConfiguration $requestConfiguration;
 
     /**
      * Filter constructor.
      */
-    public function __construct(RequestConfiguration $requestConfiguration, string $code, string $label, string $minLabel, string $maxLabel, int $min, int $max)
-    {
-        $this->requestConfiguration = $requestConfiguration;
-        $this->code = $code;
-        $this->label = $label;
-        $this->minLabel = $minLabel;
-        $this->min = $min;
-        $this->max = $max;
-
-        $this->addValue($minLabel, 0, (string) $min);
-        $this->addValue($maxLabel, 0, (string) $max);
+    public function __construct(
+        private readonly RequestConfiguration $requestConfiguration,
+        private readonly string $code,
+        private readonly string $label,
+        private readonly string $minLabel,
+        private readonly string $maxLabel,
+        private readonly int $min,
+        private readonly int $max,
+    ) {
+        $this->addValue(label: $minLabel, count: 0, value: (string) $min);
+        $this->addValue(label: $maxLabel, count: 0, value: (string) $max);
     }
 
     public function getCode(): string
@@ -75,12 +48,20 @@ class RangeFilter implements FilterInterface
 
     public function addValue(string $label, int $count, ?string $value = null): void
     {
-        $currentValueType = $this->getValueType($label);
+        $currentValueType = $this->getValueType(valueLabel: $label);
+
         $currentValues = $this->getCurrentValues();
-        $isApplied = \array_key_exists($currentValueType, $currentValues);
+
+        $isApplied = array_key_exists(key: $currentValueType, array: $currentValues);
+
         $value = $isApplied ? $currentValues[$currentValueType] : $value;
 
-        $this->values[] = new FilterValue($label, $count, $value, $isApplied);
+        $this->values[] = new FilterValue(
+            label: $label,
+            count: $count,
+            value: $value,
+            isApplied: $isApplied,
+        );
     }
 
     public function getValues(): array
@@ -95,14 +76,15 @@ class RangeFilter implements FilterInterface
 
     public function getAppliedValues(): array
     {
-        return array_filter($this->values, function (FilterValue $filterValue): bool {
-            return $filterValue->isApplied();
-        });
+        return array_filter(
+            array: $this->values,
+            callback: static fn (FilterValue $filterValue): bool => $filterValue->isApplied(),
+        );
     }
 
     public function getDefaultValue(string $type): int
     {
-        if ('min' == $type) {
+        if ('min' === $type) {
             return $this->min;
         }
 
@@ -111,7 +93,7 @@ class RangeFilter implements FilterInterface
 
     public function getValueType(string $valueLabel): string
     {
-        if ($valueLabel == $this->minLabel) {
+        if ($valueLabel === $this->minLabel) {
             return 'min';
         }
 

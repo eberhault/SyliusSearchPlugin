@@ -25,10 +25,13 @@ final class CreatedAtSorter implements SorterInterface
     public function apply(Query $query, RequestConfiguration $requestConfiguration): void
     {
         $sorting = $requestConfiguration->getSorting();
-        if (!\array_key_exists('created_at', $sorting)) {
+
+        if (!array_key_exists(key: 'created_at', array: $sorting)) {
             return;
         }
 
-        $query->addSort($this->buildSort('created_at', $sorting['created_at']));
+        $query->addSort(
+            sort: $this->buildSort(field: 'created_at', order: $sorting['created_at']),
+        );
     }
 }

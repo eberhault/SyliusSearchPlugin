@@ -19,26 +19,14 @@ use MonsieurBiz\SyliusSearchPlugin\Search\Request\RequestHandler;
 use Pagerfanta\Elastica\ElasticaAdapter;
 use Sylius\Component\Locale\Context\LocaleContextInterface;
 
-class Search implements SearchInterface
+readonly class Search implements SearchInterface
 {
-    private LocaleContextInterface $localeContext;
-
-    private RequestHandler $requestHandler;
-
-    private ClientFactory $clientFactory;
-
-    private ResponseFactory $responseFactory;
-
     public function __construct(
-        ClientFactory $clientFactory,
-        LocaleContextInterface $localeContext,
-        RequestHandler $requestHandler,
-        ResponseFactory $responseFactory
+        private ClientFactory $clientFactory,
+        private LocaleContextInterface $localeContext,
+        private RequestHandler $requestHandler,
+        private ResponseFactory $responseFactory
     ) {
-        $this->localeContext = $localeContext;
-        $this->requestHandler = $requestHandler;
-        $this->clientFactory = $clientFactory;
-        $this->responseFactory = $responseFactory;
     }
 
     /**
@@ -46,18 +34,23 @@ class Search implements SearchInterface
      */
     public function search(RequestConfiguration $requestConfiguration): ResponseInterface
     {
-        $request = $this->requestHandler->getRequest($requestConfiguration);
+        $request = $this->requestHandler->getRequest(requestConfiguration: $requestConfiguration);
 
         $documentable = $request->getDocumentable();
+
         $localeCode = $documentable->isTranslatable() ? $this->localeContext->getLocaleCode() : null;
 
-        $indexName = $this->clientFactory->getIndexName($documentable, $localeCode);
-        $client = $this->clientFactory->getClient($documentable, $localeCode);
+        $indexName = $this->clientFactory->getIndexName(documentable: $documentable, locale: $localeCode);
+
+        $client = $this->clientFactory->getClient(documentable: $documentable, localeCode: $localeCode);
 
         return $this->responseFactory->build(
-            $requestConfiguration,
-            new ElasticaAdapter($client->getIndex($indexName), $request->getQuery()),
-            $request->getDocumentable()
+            requestConfiguration: $requestConfiguration,
+            adapter: new ElasticaAdapter(
+                searchable: $client->getIndex($indexName),
+                query: $request->getQuery(),
+            ),
+            documentable: $request->getDocumentable(),
         );
     }
 }

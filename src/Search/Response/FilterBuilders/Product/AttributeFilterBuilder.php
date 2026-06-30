@@ -20,53 +20,62 @@ use MonsieurBiz\SyliusSearchPlugin\Search\Response\FilterBuilders\FilterBuilderI
 
 class AttributeFilterBuilder implements FilterBuilderInterface
 {
-    /**
-     * @SuppressWarnings(PHPMD.CyclomaticComplexity)
-     */
     public function build(
         DocumentableInterface $documentable,
         RequestConfiguration $requestConfiguration,
         string $aggregationCode,
         array $aggregationData
     ): ?array {
-        if (false === (bool) preg_match('/monsieurbiz_product$/', $documentable->getIndexCode()) || 'attributes' !== $aggregationCode) {
+        if (!str_ends_with($documentable->getIndexCode(), 'monsieurbiz_product') || 'attributes' !== $aggregationCode) {
             return null;
         }
 
         $attributeAggregations = $aggregationData[$aggregationCode] ?? [];
+
         $attributeAggregations = $attributeAggregations[$aggregationCode] ?? $attributeAggregations;
+
         unset($attributeAggregations['doc_count']);
+
         $filters = [];
+
         foreach ($attributeAggregations as $attributeCode => $attributeAggregation) {
             if (isset($attributeAggregation[$attributeCode])) {
                 $attributeAggregation = $attributeAggregation[$attributeCode];
             }
+
             $attributeNameBuckets = $attributeAggregation['names']['buckets'] ?? [];
+
             foreach ($attributeNameBuckets as $attributeNameBucket) {
                 $attributeValueBuckets = $attributeNameBucket['values']['buckets'] ?? [];
+
                 $filter = new Filter(
-                    $requestConfiguration,
-                    $attributeCode,
-                    $attributeNameBucket['key'],
-                    $attributeNameBucket['doc_count'],
-                    $aggregationCode
+                    requestConfiguration: $requestConfiguration,
+                    code: $attributeCode,
+                    label: $attributeNameBucket['key'],
+                    count: $attributeNameBucket['doc_count'],
+                    type: $aggregationCode,
                 );
+
                 foreach ($attributeValueBuckets as $attributeValueBucket) {
                     if (0 === $attributeValueBucket['doc_count']) {
                         continue;
                     }
+
                     if (isset($attributeValueBucket['key'], $attributeValueBucket['doc_count'])) {
-                        $filter->addValue($attributeValueBucket['key'], $attributeValueBucket['doc_count']);
+                        $filter->addValue(
+                            label: $attributeValueBucket['key'],
+                            count: $attributeValueBucket['doc_count'],
+                        );
                     }
                 }
 
-                if (0 !== \count($filter->getValues())) {
+                if (0 !== count(value: $filter->getValues())) {
                     $filters[] = $filter;
                 }
             }
         }
 
-        return 0 !== \count($filters) ? $filters : null;
+        return 0 !== count(value: $filters) ? $filters : null;
     }
 
     public function getPosition(): int

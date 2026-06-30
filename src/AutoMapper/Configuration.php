@@ -28,14 +28,6 @@ final class Configuration implements ConfigurationInterface
         $this->targetClasses = $automapperClasses['targets'] ?? [];
     }
 
-    /**
-     * @deprecated you should not be able to define any mapping outside the config. If necessary, define your own configuration class
-     */
-    public function addSourceClass(string $identifier, string $className): void
-    {
-        $this->sourceClasses[$identifier] = $className;
-    }
-
     public function getSourceClass(string $identifier): string
     {
         if (!\array_key_exists($identifier, $this->sourceClasses)) {
@@ -43,14 +35,6 @@ final class Configuration implements ConfigurationInterface
         }
 
         return $this->sourceClasses[$identifier];
-    }
-
-    /**
-     * @deprecated you should not be able to define any mapping outside the config. If necessary, define your own configuration class
-     */
-    public function addTargetClass(string $identifier, string $className): void
-    {
-        $this->targetClasses[$identifier] = $className;
     }
 
     public function getTargetClass(string $identifier): string

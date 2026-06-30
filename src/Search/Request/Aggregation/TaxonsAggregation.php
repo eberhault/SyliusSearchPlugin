@@ -13,12 +13,13 @@ declare(strict_types=1);
 
 namespace MonsieurBiz\SyliusSearchPlugin\Search\Request\Aggregation;
 
+use Elastica\Aggregation\AbstractAggregation;
 use Elastica\QueryBuilder;
 use Sylius\Component\Core\Model\TaxonInterface;
 
 final class TaxonsAggregation implements AggregationBuilderInterface
 {
-    public function build($aggregation, array $filters)
+    public function build(object|array|string $aggregation, array $filters): false|AbstractAggregation|null
     {
         if (!$this->isSupported($aggregation)) {
             return null;

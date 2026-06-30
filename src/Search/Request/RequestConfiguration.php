@@ -24,82 +24,72 @@ use Symfony\Component\HttpFoundation\Request;
 
 final class RequestConfiguration
 {
-    public const FALLBACK_LIMIT = 9;
-
-    private Request $request;
-
-    private string $type;
-
-    private DocumentableInterface $documentable;
-
-    private SettingsInterface $searchSettings;
-
-    private ChannelContextInterface $channelContext;
-
-    private Parameters $parameters;
+    public const int FALLBACK_LIMIT = 9;
 
     public function __construct(
-        Request $request,
-        string $type,
-        DocumentableInterface $documentable,
-        SettingsInterface $searchSettings,
-        ChannelContextInterface $channelContext,
-        ?Parameters $parameters = null
+        private readonly Request $request,
+        private readonly string $type,
+        private readonly DocumentableInterface $documentable,
+        private readonly SettingsInterface $searchSettings,
+        private readonly ChannelContextInterface $channelContext,
+        private ?Parameters $parameters = null
     ) {
-        $this->request = $request;
-        $this->type = $type;
-        $this->documentable = $documentable;
-        $this->searchSettings = $searchSettings;
-        $this->channelContext = $channelContext;
-        $this->parameters = $parameters ?? new Parameters();
+        $this->parameters = $this->parameters ?? new Parameters();
     }
 
     public function getQueryText(): string
     {
-        /** @phpstan-ignore-next-line */
-        return trim(urldecode($this->request->get('query', '')));
+        $query = $this->request->query
+            ->getString(
+                key: 'query',
+                default: $this->request->attributes->getString(key: 'query')
+            );
+        return trim(
+            string: urldecode(
+                string: $query,
+            ),
+        );
     }
 
     public function getAppliedFilters(string $type = null): array
     {
         $requestQuery = $this->request->query->all();
-        $requestQuery = array_map(function ($query) {
-            return \is_array($query) ? array_filter($query) : $query;
-        }, $requestQuery);
 
-        $this->manageRangeField('price');
+        $requestQuery = array_map(
+            callback: function ($query) {
+                return \is_array($query) ? array_filter($query) : $query;
+            },
+            array: $requestQuery,
+        );
+
+        $this->manageRangeField(field: 'price');
 
         return null !== $type ? ($requestQuery[$type] ?? []) : $requestQuery;
     }
 
     public function getSorting(): array
     {
-        /** @phpstan-ignore-next-line */
-        return $this->request->get('sorting', []);
+        return $this->request->query->all(key: 'sorting');
     }
 
     public function getPage(): int
     {
-        /** @phpstan-ignore-next-line */
-        return (int) $this->request->get('page', 1);
+        return $this->request->query->getInt(key: 'page', default: 1);
     }
 
-    /**
-     * @SuppressWarnings(PHPMD.CyclomaticComplexity)
-     */
     public function manageRangeField(string $field): void
     {
-        $range = $this->request->get($field, []);
-        if (!\is_array($range) || empty($range)) {
+        /** @var array $range */
+        $range = $this->request->query->all(key: $field);
+
+        if (!is_array($range) || empty($range)) {
             return;
         }
 
-        /** @var array $range */
-
         // Reverse min and max if min is greater than max
         if (isset($range['min'], $range['max'])) {
-            $min = (float) $range['min'];
-            $max = (float) $range['max'];
+            $min = (float)$range['min'];
+            $max = (float)$range['max'];
             if ($min > $max) {
                 $min = $range['min']; // Take the original value, not casted
                 $range['min'] = $range['max'];
@@ -108,25 +98,25 @@ final class RequestConfiguration
         }
 
         // Remove min value is 0 or less
-        if (isset($range['min']) && 0 >= (float) $range['min']) {
+        if (isset($range['min']) && 0 >= (float)$range['min']) {
             unset($range['min']);
         }
 
         // Remove max value if it is 0 or less
-        if (isset($range['max']) && 0 >= (float) $range['max']) {
+        if (isset($range['max']) && 0 >= (float)$range['max']) {
             unset($range['max']);
         }
 
-        $this->request->query->set($field, $range);
+        $this->request->query->set(key: $field, value: $range);
     }
 
     public function getLimit(): int
     {
-        /** @phpstan-ignore-next-line */
-        $limit = (int) $this->request->get('limit', self::FALLBACK_LIMIT);
+        $limit = $this->request->query->getInt(key: 'limit', default: self::FALLBACK_LIMIT);
+
         $availableLimits = $this->getAvailableLimits();
 
-        if (0 < \count($availableLimits) && !\in_array($limit, $availableLimits, true)) {
+        if (0 < count(value: $availableLimits) && !in_array(needle: $limit, haystack: $availableLimits, strict: true)) {
             $limit = reset($availableLimits);
         }
 
@@ -137,12 +127,12 @@ final class RequestConfiguration
     {
         /** @var array $configLimits */
         $configLimits = $this->searchSettings->getCurrentValue(
-            $this->channelContext->getChannel(),
-            null,
-            'limits__' . $this->getDocumentType()
+            channel: $this->channelContext->getChannel(),
+            localeCode: null,
+            path: sprintf('limits__%s', $this->getDocumentType()),
         );
 
-        return $configLimits[$this->getType()] ?? $this->documentable->getLimits($this->getType());
+        return $configLimits[$this->getType()] ?? $this->documentable->getLimits(queryType: $this->getType());
     }
 
     public function getType(): string
@@ -157,16 +147,16 @@ final class RequestConfiguration
 
     public function getTaxon(): TaxonInterface
     {
-        if (!$this->parameters->has('taxon')) {
-            throw new ParameterNotFoundException('taxon');
-        }
-        $taxon = $this->parameters->get('taxon');
-        if (!$taxon instanceof TaxonInterface) {
-            throw ObjectNotInstanceOfClassException::fromClassName(TaxonInterface::class);
+        if (!$this->parameters->has(key: 'taxon')) {
+            throw new ParameterNotFoundException(key: 'taxon');
         }
 
-        /** @phpstan-ignore-next-line */
-        return $this->parameters->get('taxon');
+        $taxon = $this->parameters->get(key: 'taxon');
+        if (!$taxon instanceof TaxonInterface) {
+            throw ObjectNotInstanceOfClassException::fromClassName(className: TaxonInterface::class);
+        }
+
+        return $this->parameters->get(key: 'taxon');
     }
 
     public function getParameters(): Parameters

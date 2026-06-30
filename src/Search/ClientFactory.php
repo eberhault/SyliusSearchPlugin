@@ -22,35 +22,46 @@ use MonsieurBiz\SyliusSearchPlugin\Model\Documentable\DocumentableInterface;
 use MonsieurBiz\SyliusSearchPlugin\Model\Documentable\PrefixedDocumentableInterface;
 use Symfony\Component\Serializer\SerializerInterface;
 
-class ClientFactory
+readonly class ClientFactory
 {
-    private array $config;
-
-    private SerializerInterface $serializer;
-
-    public function __construct(SerializerInterface $serializer, array $config = [])
-    {
-        $this->config = $config;
-        $this->serializer = $serializer;
+    public function __construct(
+        private SerializerInterface $serializer,
+        private array $config = [],
+    ) {
     }
 
     public function getClient(DocumentableInterface $documentable, ?string $localeCode = null): Client
     {
-        $factory = new Factory($this->getConfig($documentable, $localeCode));
+        $factory = new Factory(
+            config: $this->getConfig(
+                documentable: $documentable,
+                localeCode: $localeCode,
+            ),
+        );
 
         return $factory->buildClient();
     }
 
     public function getIndexBuilder(DocumentableInterface $documentable, ?string $localeCode = null): IndexBuilder
     {
-        $factory = new Factory($this->getConfig($documentable, $localeCode));
+        $factory = new Factory(
+            config: $this->getConfig(
+                documentable: $documentable,
+                localeCode: $localeCode,
+            ),
+        );
 
         return $factory->buildIndexBuilder();
     }
 
     public function getIndexer(DocumentableInterface $documentable, ?string $localeCode = null): Indexer
     {
-        $factory = new Factory($this->getConfig($documentable, $localeCode));
+        $factory = new Factory(
+            config: $this->getConfig(
+                documentable: $documentable,
+                localeCode: $localeCode,
+            ),
+        );
 
         return $factory->buildIndexer();
     }
@@ -67,16 +78,28 @@ class ClientFactory
      */
     public function getIndex(DocumentableInterface $documentable, ?string $locale): Index
     {
-        $indexName = $this->getIndexName($documentable, $locale);
-        $factory = new Factory($this->getConfig($documentable, $locale, $indexName));
+        $indexName = $this->getIndexName(documentable: $documentable, locale: $locale);
+
+        $factory = new Factory(
+            config: $this->getConfig(
+                documentable: $documentable,
+                localeCode: $locale,
+                indexName: $indexName,
+            ),
+        );
+
         $client = $factory->buildClient();
 
-        return $client->getIndex($indexName);
+        return $client->getIndex(name: $indexName);
     }
 
-    private function getConfig(DocumentableInterface $documentable, ?string $localeCode, ?string $indexName = null): array
-    {
-        $indexName = $indexName ?? $this->getIndexName($documentable, $localeCode);
+    private function getConfig(
+        DocumentableInterface $documentable,
+        ?string $localeCode,
+        ?string $indexName = null,
+    ): array {
+        $indexName = $indexName ?? $this->getIndexName(documentable: $documentable, locale: $localeCode);
+
         $additionalConfig = [
             Factory::CONFIG_INDEX_CLASS_MAPPING => [
                 $indexName => $documentable->getTargetClass(),
@@ -84,7 +107,9 @@ class ClientFactory
             Factory::CONFIG_MAPPINGS_PROVIDER => $documentable->getMappingProvider(),
             Factory::CONFIG_SERIALIZER => $this->serializer,
         ];
-        $prefix = $documentable instanceof PrefixedDocumentableInterface ? trim($documentable->getPrefix()) : '';
+
+        $prefix = $documentable instanceof PrefixedDocumentableInterface ? trim(string: $documentable->getPrefix()) : '';
+
         if ('' !== $prefix) {
             $additionalConfig[Factory::CONFIG_INDEX_PREFIX] = $prefix;
         }

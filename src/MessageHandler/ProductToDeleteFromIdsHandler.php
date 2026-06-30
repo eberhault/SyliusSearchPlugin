@@ -21,38 +21,32 @@ use Psr\Log\LoggerInterface;
 use Sylius\Component\Registry\ServiceRegistryInterface;
 use Symfony\Component\Messenger\Handler\MessageHandlerInterface;
 
-class ProductToDeleteFromIdsHandler implements MessageHandlerInterface
+readonly class ProductToDeleteFromIdsHandler implements MessageHandlerInterface
 {
-    private IndexerInterface $indexer;
-
-    private ServiceRegistryInterface $documentableRegistry;
-
-    private LoggerInterface $logger;
-
     public function __construct(
-        IndexerInterface $indexer,
-        ServiceRegistryInterface $documentableRegistry,
-        LoggerInterface $logger
+        private IndexerInterface $indexer,
+        private ServiceRegistryInterface $documentableRegistry,
+        private LoggerInterface $logger
     ) {
-        $this->indexer = $indexer;
-        $this->documentableRegistry = $documentableRegistry;
-        $this->logger = $logger;
     }
 
     public function __invoke(ProductToDeleteFromIds $message): void
     {
         /** @var DocumentableInterface $documentable */
-        $documentable = $this->documentableRegistry->get('search.documentable.monsieurbiz_product');
+        $documentable = $this->documentableRegistry->get(identifier: 'search.documentable.monsieurbiz_product');
 
         try {
             $this->indexer->deleteByDocumentIds(
-                $documentable,
-                $message->getProductIds()
+                documentable: $documentable,
+                documentsIds: $message->getProductIds(),
             );
         } catch (Exception $e) {
-            $this->logger->error('An error occurred while deleting products from search index', [
-                'exception' => $e,
-            ]);
+            $this->logger->error(
+                message: 'An error occurred while deleting products from search index',
+                context: [
+                    'exception' => $e,
+                ],
+            );
         }
     }
 }

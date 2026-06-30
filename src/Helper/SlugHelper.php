@@ -17,11 +17,11 @@ class SlugHelper
 {
     public static function toSlug(string $label): string
     {
-        return urlencode($label);
+        return urlencode(string: $label);
     }
 
     public static function toLabel(string $slug): string
     {
-        return urldecode($slug);
+        return urldecode(string: $slug);
     }
 }

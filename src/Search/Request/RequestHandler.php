@@ -15,13 +15,11 @@ namespace MonsieurBiz\SyliusSearchPlugin\Search\Request;
 
 use MonsieurBiz\SyliusSearchPlugin\Exception\UnknownRequestTypeException;
 
-class RequestHandler
+readonly class RequestHandler
 {
-    private iterable $searchRequests;
-
-    public function __construct(iterable $searchRequests)
-    {
-        $this->searchRequests = $searchRequests;
+    public function __construct(
+        private iterable $searchRequests,
+    ) {
     }
 
     /**
@@ -31,11 +29,18 @@ class RequestHandler
     {
         /** @var RequestInterface $request */
         foreach ($this->searchRequests as $request) {
-            if ($request->supports($requestConfiguration->getType(), $requestConfiguration->getDocumentType())) {
-                $request->setConfiguration($requestConfiguration);
+            $support = $request->supports(
+                type: $requestConfiguration->getType(),
+                documentableCode: $requestConfiguration->getDocumentType(),
+            );
 
-                return $request;
+            if (!$support) {
+                continue;
             }
+
+            $request->setConfiguration(configuration: $requestConfiguration);
+
+            return $request;
         }
 
         throw new UnknownRequestTypeException();

@@ -20,11 +20,8 @@ class ElasticsearchChecker implements ElasticsearchCheckerInterface
 {
     private ?bool $isAvailable = null;
 
-    private array $config;
-
-    public function __construct(array $config = [])
+    public function __construct(private readonly array $config = [])
     {
-        $this->config = $config;
     }
 
     public function check(): bool

@@ -15,16 +15,14 @@ namespace MonsieurBiz\SyliusSearchPlugin\Message;
 
 class ProductReindexFromIds
 {
-    private array $productIds;
-
-    public function __construct(array $productIds = [])
-    {
-        $this->productIds = $productIds;
+    public function __construct(
+        private array $productIds = [],
+    ) {
     }
 
     public function getProductIds(): array
     {
-        return array_unique($this->productIds);
+        return array_unique(array: $this->productIds);
     }
 
     public function addProductId(int $productIds): void

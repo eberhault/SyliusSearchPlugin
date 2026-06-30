@@ -17,27 +17,20 @@ use MonsieurBiz\SyliusSearchPlugin\Entity\Product\SearchableInterface;
 use MonsieurBiz\SyliusSearchPlugin\Event\MappingProviderEvent;
 use MonsieurBiz\SyliusSearchPlugin\Repository\ProductAttributeRepositoryInterface;
 use MonsieurBiz\SyliusSearchPlugin\Repository\ProductOptionRepositoryInterface;
+use Sylius\Component\Product\Model\ProductAttributeInterface;
+use Sylius\Component\Product\Model\ProductOptionInterface;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 
-class AppendProductAttributeMappingSubscriber implements EventSubscriberInterface
+readonly class AppendProductAttributeMappingSubscriber implements EventSubscriberInterface
 {
-    private ProductAttributeRepositoryInterface $productAttributeRepository;
-
-    private ProductOptionRepositoryInterface $productOptionRepository;
-
-    private string $fieldAnalyzer;
-
     public function __construct(
-        ProductAttributeRepositoryInterface $productAttributeRepository,
-        ProductOptionRepositoryInterface $productOptionRepository,
-        string $fieldAnalyzer
+        private ProductAttributeRepositoryInterface $productAttributeRepository,
+        private ProductOptionRepositoryInterface $productOptionRepository,
+        private string $fieldAnalyzer
     ) {
-        $this->productAttributeRepository = $productAttributeRepository;
-        $this->productOptionRepository = $productOptionRepository;
-        $this->fieldAnalyzer = $fieldAnalyzer;
     }
 
-    public static function getSubscribedEvents()
+    public static function getSubscribedEvents(): array
     {
         return [
             MappingProviderEvent::EVENT_NAME => 'onMappingProvider',
@@ -46,17 +39,20 @@ class AppendProductAttributeMappingSubscriber implements EventSubscriberInterfac
 
     public function onMappingProvider(MappingProviderEvent $event): void
     {
-        if (false === (bool) preg_match('/monsieurbiz_product$/', $event->getIndexCode())) {
+        if (false === str_ends_with(haystack: $event->getIndexCode(), needle: 'monsieurbiz_product')) {
             return;
         }
+
         $mapping = $event->getMapping();
-        if (null === $mapping || !$mapping->offsetExists('mappings')) {
+
+        if (null === $mapping || !$mapping->offsetExists(key: 'mappings')) {
             return;
         }
+
         /** @var array $mappings */
         $mappings = $mapping->offsetGet('mappings');
-        $mappings = $this->appendAttributesMapping($mappings);
-        $mappings = $this->appendOptionsMapping($mappings);
+        $mappings = $this->appendAttributesMapping(mappings: $mappings);
+        $mappings = $this->appendOptionsMapping(mappings: $mappings);
 
         $mapping->offsetSet('mappings', $mappings);
     }
@@ -64,10 +60,13 @@ class AppendProductAttributeMappingSubscriber implements EventSubscriberInterfac
     private function appendAttributesMapping(array $mappings): array
     {
         $attributesMapping = [];
+
+        /** @var ProductAttributeInterface $productAttribute */
         foreach ($this->productAttributeRepository->findIsSearchableOrFilterable() as $productAttribute) {
-            $attributesMapping[$productAttribute->getCode()] = $this->getProductAttributeProperties($productAttribute);
+            $attributesMapping[$productAttribute->getCode()] = $this->getProductAttributeProperties(productAttribute: $productAttribute);
         }
-        if (0 < \count($attributesMapping)) {
+
+        if (0 < count($attributesMapping)) {
             $mappings['properties']['attributes'] = [
                 'type' => 'nested',
                 'properties' => $attributesMapping,
@@ -80,10 +79,13 @@ class AppendProductAttributeMappingSubscriber implements EventSubscriberInterfac
     private function appendOptionsMapping(array $mappings): array
     {
         $optionsMapping = [];
+
+        /** @var ProductOptionInterface $productOption */
         foreach ($this->productOptionRepository->findIsSearchableOrFilterable() as $productOption) {
             $optionsMapping[$productOption->getCode()] = $this->getProductOptionProperties($productOption);
         }
-        if (0 < \count($optionsMapping)) {
+
+        if (0 < count($optionsMapping)) {
             $mappings['properties']['options'] = [
                 'type' => 'nested',
                 'properties' => $optionsMapping,

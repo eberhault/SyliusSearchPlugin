@@ -20,7 +20,7 @@ class DateTimeReader implements ReaderInterface
 {
     protected string $defaultFormat = 'Y-m-d H:i:s';
 
-    public function getValue(ProductAttributeValueInterface $productAttribute)
+    public function getValue(ProductAttributeValueInterface $productAttribute): array|string
     {
         if (null === $productAttribute->getAttribute()) {
             return '';

@@ -20,37 +20,50 @@ use Pagerfanta\Pagerfanta;
 use Sylius\Component\Core\Repository\ProductRepositoryInterface;
 use Webmozart\Assert\Assert;
 
-class ProductDatasource implements DatasourceInterface
-{
-    private EntityManagerInterface $entityManager;
+use function Doctrine\ORM\QueryBuilder;
 
-    public function __construct(EntityManagerInterface $entityManager)
-    {
-        $this->entityManager = $entityManager;
+readonly class ProductDatasource implements DatasourceInterface
+{
+    public function __construct(
+        private EntityManagerInterface $entityManager,
+    ) {
     }
 
     public function getItems(string $sourceClass): iterable
     {
-        /** @phpstan-ignore-next-line */
         $repository = $this->entityManager->getRepository($sourceClass);
+
         /** @var ProductRepositoryInterface&EntityRepository $repository */
-        Assert::isInstanceOf($repository, ProductRepositoryInterface::class);
+        Assert::isInstanceOf(value: $repository, class: ProductRepositoryInterface::class);
 
-        $queryBuilder = $repository->createQueryBuilder('o')
+        $queryBuilder = $repository->createQueryBuilder(alias: 'o');
+
+
+        $queryBuilder
+            ->where(
+                $queryBuilder->expr()->eq('o.enabled', ':enabled')
+            )
             ->andWhere('o.channels IS NOT EMPTY')
-            ->andWhere('o.enabled = :enabled')
-            ->setParameter('enabled', true)
-        ;
+            ->setParameter('enabled', true);
 
-        $paginator = new Pagerfanta(new QueryAdapter($queryBuilder, false, false));
-        $paginator->setMaxPerPage(self::DEFAULT_MAX_PER_PAGE);
+        $paginator = new Pagerfanta(
+            adapter: new QueryAdapter(
+                query: $queryBuilder,
+                fetchJoinCollection: false,
+                useOutputWalkers: false,
+            ),
+        );
+
+        $paginator->setMaxPerPage(maxPerPage: self::DEFAULT_MAX_PER_PAGE);
+
         $page = 1;
         do {
-            $paginator->setCurrentPage($page);
+            $paginator->setCurrentPage(currentPage: $page);
 
             foreach ($paginator->getIterator() as $item) {
                 yield $item;
             }
+
             $page = $paginator->hasNextPage() ? $paginator->getNextPage() : 1;
         } while ($paginator->hasNextPage());
 

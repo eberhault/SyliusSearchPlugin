@@ -23,29 +23,34 @@ final class ProductTaxonPostFilter implements PostFilterInterface
 {
     public function apply(BoolQuery $boolQuery, RequestConfiguration $requestConfiguration): void
     {
-        $qb = new QueryBuilder();
-        $taxonsSelected = $requestConfiguration->getAppliedFilters('taxons');
-        if (0 !== \count($taxonsSelected)) {
-            $taxonQuery = $qb->query()
-                ->bool()
-            ;
+        $queryBuilder = new QueryBuilder();
+
+        $taxonsSelected = $requestConfiguration->getAppliedFilters(type: 'taxons');
+
+        if (0 !== count(value: $taxonsSelected)) {
+            $taxonQuery = $queryBuilder->query()->bool();
+
             foreach ($taxonsSelected as $value) {
                 $taxonQuery->addShould(
-                    $qb->query()
+                    args: $queryBuilder
+                        ->query()
                         ->term()
-                        ->setTerm('product_taxons.taxon.code', SlugHelper::toLabel($value))
+                        ->setTerm(key: 'product_taxons.taxon.code', value: SlugHelper::toLabel(slug: $value)),
                 );
             }
 
             $boolQuery->addMust(
-                $qb->query()
+                args: $queryBuilder
+                    ->query()
                     ->nested()
-                    ->setPath('product_taxons')
+                    ->setPath(path: 'product_taxons')
                     ->setQuery(
-                        $qb->query()->nested()
-                            ->setPath('product_taxons.taxon')
-                            ->setQuery($taxonQuery)
-                    )
+                        $queryBuilder
+                            ->query()
+                            ->nested()
+                            ->setPath(path: 'product_taxons.taxon')
+                            ->setQuery(query: $taxonQuery)
+                    ),
             );
         }
     }

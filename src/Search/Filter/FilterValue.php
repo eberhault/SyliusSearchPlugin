@@ -17,30 +17,21 @@ use MonsieurBiz\SyliusSearchPlugin\Helper\SlugHelper;
 
 class FilterValue
 {
-    private string $label;
-
-    private int $count;
-
-    private string $value;
-
-    private bool $isApplied;
-
     /**
      * Filter constructor.
-     *
-     * @SuppressWarnings(PHPMD.BooleanArgumentFlag)
      */
-    public function __construct(string $label, int $count, string $value = null, bool $isApplied = false)
-    {
-        $this->value = $value ?? $label;
-        $this->label = $label;
-        $this->count = $count;
-        $this->isApplied = $isApplied;
+    public function __construct(
+        private readonly string $label,
+        private readonly int $count,
+        private ?string $value = null,
+        private readonly bool $isApplied = false,
+    ) {
+        $this->value = $this->value ?? $label;
     }
 
     public function getSlug(): string
     {
-        return SlugHelper::toSlug($this->value);
+        return SlugHelper::toSlug(label: $this->value);
     }
 
     public function getLabel(): string

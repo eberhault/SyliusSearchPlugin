@@ -17,18 +17,13 @@ use Elastica\ResultSet;
 use JoliCode\Elastically\Result;
 use MonsieurBiz\SyliusSearchPlugin\Model\Documentable\DocumentableInterface;
 use MonsieurBiz\SyliusSearchPlugin\Search\Request\RequestConfiguration;
+use MonsieurBiz\SyliusSearchPlugin\Search\Response\FilterBuilders\FilterBuilderInterface;
 use Pagerfanta\Adapter\AdapterInterface;
 use Pagerfanta\Pagerfanta;
 use Traversable;
 
 class Response implements ResponseInterface
 {
-    private RequestConfiguration $requestConfiguration;
-
-    private AdapterInterface $adapter;
-
-    private DocumentableInterface $documentable;
-
     /**
      * @var Pagerfanta<Result>|null
      */
@@ -36,18 +31,12 @@ class Response implements ResponseInterface
 
     private array $filters = [];
 
-    private iterable $filterBuilders;
-
     public function __construct(
-        RequestConfiguration $requestConfiguration,
-        AdapterInterface $adapter,
-        DocumentableInterface $documentable,
-        iterable $filterBuilders
+        private readonly RequestConfiguration $requestConfiguration,
+        private readonly AdapterInterface $adapter,
+        private readonly DocumentableInterface $documentable,
+        private readonly iterable $filterBuilders
     ) {
-        $this->requestConfiguration = $requestConfiguration;
-        $this->adapter = $adapter;
-        $this->documentable = $documentable;
-        $this->filterBuilders = $filterBuilders;
         $this->buildFilters();
     }
 
@@ -68,11 +57,10 @@ class Response implements ResponseInterface
 
     public function getPaginator(): Pagerfanta
     {
-        if (null === $this->paginator) {
-            /** @phpstan-ignore-next-line */
-            $this->paginator = new Pagerfanta($this->adapter);
-            $this->paginator->setMaxPerPage($this->requestConfiguration->getLimit());
-            $this->paginator->setCurrentPage($this->requestConfiguration->getPage());
+        if (!$this->paginator instanceof Pagerfanta) {
+            $this->paginator = (new Pagerfanta(adapter: $this->adapter))
+                ->setMaxPerPage(maxPerPage: $this->requestConfiguration->getLimit())
+                ->setCurrentPage(currentPage: $this->requestConfiguration->getPage());
         }
 
         return $this->paginator;
@@ -83,34 +71,48 @@ class Response implements ResponseInterface
         return $this->documentable;
     }
 
-    /**
-     * @SuppressWarnings(PHPMD.CyclomaticComplexity)
-     */
     private function buildFilters(): void
     {
         /** @var ResultSet $results */
         $results = $this->getPaginator()->getCurrentPageResults();
+
         $aggregations = $results->getAggregations();
+
         // No aggregation so don't perform filters
-        if (0 === \count($aggregations)) {
+        if (0 === count(value: $aggregations)) {
             return;
         }
 
-        array_map(function ($aggregationCode, $aggregationData): void {
-            foreach ($this->filterBuilders as $filterBuilder) {
-                if (null !== $filter = $filterBuilder->build($this->getDocumentable(), $this->requestConfiguration, $aggregationCode, $aggregationData)) {
-                    $this->filters[$filterBuilder->getPosition()][] = $filter;
+        array_map(
+            function ($aggregationCode, $aggregationData): void {
+                /** @var FilterBuilderInterface $filterBuilder */
+                foreach ($this->filterBuilders as $filterBuilder) {
+                    $filter = $filterBuilder->build(
+                        documentable: $this->getDocumentable(),
+                        requestConfiguration: $this->requestConfiguration,
+                        aggregationCode: $aggregationCode,
+                        aggregationData: $aggregationData,
+                    );
+
+                    if (null !== $filter) {
+                        $this->filters[$filterBuilder->getPosition()][] = $filter;
+                    }
                 }
-            }
-        }, array_keys($aggregations), $aggregations);
+            },
+            array_keys(array: $aggregations),
+            $aggregations,
+        );
 
         $result = [];
+
         ksort($this->filters);
+
         foreach ($this->filters as $filters) {
             foreach ($filters as $filter) {
                 $result[] = $filter;
             }
         }
+
         $this->filters = array_merge(...$result);
     }
 }

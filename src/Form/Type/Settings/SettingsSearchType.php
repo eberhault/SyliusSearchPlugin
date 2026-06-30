@@ -21,11 +21,9 @@ use Symfony\Component\Form\FormBuilderInterface;
 
 class SettingsSearchType extends AbstractSettingsType
 {
-    private ServiceRegistryInterface $documentableRegistry;
-
-    public function __construct(ServiceRegistryInterface $documentableRegistry)
-    {
-        $this->documentableRegistry = $documentableRegistry;
+    public function __construct(
+        private readonly ServiceRegistryInterface $documentableRegistry,
+    ) {
     }
 
     public function buildForm(FormBuilderInterface $builder, array $options): void
@@ -33,24 +31,29 @@ class SettingsSearchType extends AbstractSettingsType
         /** @var DocumentableInterface $documentable */
         foreach ($this->documentableRegistry->all() as $documentable) {
             $this->addWithDefaultCheckbox(
-                $builder,
-                'instant_search_enabled__' . $documentable->getIndexCode(),
-                CheckboxType::class,
-                [
+                builder: $builder,
+                child: 'instant_search_enabled__' . $documentable->getIndexCode(),
+                type: CheckboxType::class,
+                options: [
                     'required' => false,
                     'label' => 'monsieurbiz_searchplugin.admin.setting_form.instant_search_enabled_' . $documentable->getIndexCode(),
-                ]
+                ],
             );
+
             /** @var array $optionsData */
             $optionsData = $options['data'] ?? [];
+
             $subOptions = [];
+
             $subOptions['data'] = $optionsData['limits__' . $documentable->getIndexCode()] ?? [];
+
             $subOptions['documentable'] = $documentable;
+
             $this->addWithDefaultCheckbox(
-                $builder,
-                'limits__' . $documentable->getIndexCode(),
-                LimitsSearchType::class,
-                $subOptions
+                builder: $builder,
+                child: 'limits__' . $documentable->getIndexCode(),
+                type: LimitsSearchType::class,
+                options: $subOptions,
             );
         }
     }

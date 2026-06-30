@@ -18,10 +18,11 @@ use Doctrine\ORM\Event\OnFlushEventArgs;
 use Doctrine\ORM\Events;
 use Doctrine\ORM\UnitOfWork;
 use MonsieurBiz\SyliusSearchPlugin\Manager\AutomaticReindexManagerInterface;
-use MonsieurBiz\SyliusSearchPlugin\Message\ProductReindexFromTaxon;
+use MonsieurBiz\SyliusSearchPlugin\Message\ProductReindexFromTaxonId;
 use Psr\Log\LoggerAwareInterface;
 use Psr\Log\LoggerAwareTrait;
 use Sylius\Component\Core\Model\ProductTaxonInterface;
+use Sylius\Component\Core\Model\TaxonInterface;
 use Symfony\Component\Messenger\MessageBusInterface;
 
 /**
@@ -32,17 +33,13 @@ class ReindexProductEventSubscriber implements EventSubscriberInterface, LoggerA
 {
     use LoggerAwareTrait;
 
-    private MessageBusInterface $messageBus;
-
-    private AutomaticReindexManagerInterface $automaticReindexManager;
-
-    public function __construct(MessageBusInterface $messageBus, AutomaticReindexManagerInterface $automaticReindexManager)
-    {
-        $this->messageBus = $messageBus;
-        $this->automaticReindexManager = $automaticReindexManager;
+    public function __construct(
+        private readonly MessageBusInterface $messageBus,
+        private readonly AutomaticReindexManagerInterface $automaticReindexManager,
+    ) {
     }
 
-    public function getSubscribedEvents()
+    public function getSubscribedEvents(): array
     {
         return [
             Events::onFlush => 'onFlush',
@@ -55,18 +52,29 @@ class ReindexProductEventSubscriber implements EventSubscriberInterface, LoggerA
             return;
         }
 
-        $eventArgs->getEntityManager()->getEventManager()->removeEventListener(Events::onFlush, $this);
-        $unitOfWork = $eventArgs->getEntityManager()->getUnitOfWork();
-        $this->manageUnitOfWork($unitOfWork);
+        $eventArgs->getObjectManager()->getEventManager()->removeEventListener(events: Events::onFlush, listener: $this);
+
+        $unitOfWork = $eventArgs->getObjectManager()->getUnitOfWork();
+
+        $this->manageUnitOfWork(unitOfWork: $unitOfWork);
     }
 
     private function manageUnitOfWork(UnitOfWork $unitOfWork): void
     {
         $entities = array_merge($unitOfWork->getScheduledEntityInsertions(), $unitOfWork->getScheduledEntityUpdates());
+
         foreach ($entities as $entity) {
-            if ($entity instanceof ProductTaxonInterface && null !== $taxon = $entity->getTaxon()) {
-                $this->messageBus->dispatch(new ProductReindexFromTaxon($taxon->getId()));
+            if (!$entity instanceof ProductTaxonInterface) {
+                continue;
             }
+
+            $taxon = $entity->getTaxon();
+
+            if (!$taxon instanceof TaxonInterface) {
+                continue;
+            }
+
+            $this->messageBus->dispatch(new ProductReindexFromTaxonId($taxon->getId()));
         }
     }
 }

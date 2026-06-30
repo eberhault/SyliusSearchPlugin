@@ -23,32 +23,20 @@ use Sylius\Component\Registry\ServiceRegistryInterface;
 
 class InstantSearch implements InstantSearchInterface
 {
-    protected ServiceRegistryInterface $documentableRegistry;
-
     protected ?RequestConfiguration $configuration;
 
-    protected string $documentType;
-
     /**
-     * @var iterable<QueryFilterInterface>
+     * @param ServiceRegistryInterface $documentableRegistry
+     * @param string $documentType
+     * @param iterable<QueryFilterInterface> $queryFilters
+     * @param iterable<FunctionScoreInterface> $functionScores
      */
-    protected iterable $queryFilters;
-
-    /**
-     * @var iterable<FunctionScoreInterface>
-     */
-    protected iterable $functionScores;
-
     public function __construct(
-        ServiceRegistryInterface $documentableRegistry,
-        string $documentType,
-        iterable $queryFilters,
-        iterable $functionScores
+        protected readonly ServiceRegistryInterface $documentableRegistry,
+        protected readonly string $documentType,
+        protected readonly iterable $queryFilters,
+        protected readonly iterable $functionScores
     ) {
-        $this->documentableRegistry = $documentableRegistry;
-        $this->documentType = $documentType;
-        $this->queryFilters = $queryFilters;
-        $this->functionScores = $functionScores;
     }
 
     public function getType(): string
@@ -58,36 +46,45 @@ class InstantSearch implements InstantSearchInterface
 
     public function getDocumentable(): DocumentableInterface
     {
-        /** @phpstan-ignore-next-line  */
-        return $this->documentableRegistry->get('search.documentable.' . $this->documentType);
+        return $this->documentableRegistry->get(
+            identifier: sprintf('search.documentable.%s', $this->documentType),
+        );
     }
 
     public function getQuery(): Query
     {
-        if (null === $this->configuration) {
-            throw new RuntimeException('missing configuration');
+        if (!$this->configuration instanceof RequestConfiguration) {
+            throw new RuntimeException(message: 'missing configuration');
         }
 
-        $qb = new QueryBuilder();
-        $boolQuery = $qb->query()->bool();
+        $queryBuilder = new QueryBuilder();
+
+        $boolQuery = $queryBuilder->query()->bool();
+
         foreach ($this->queryFilters as $queryFilter) {
-            $queryFilter->apply($boolQuery, $this->configuration);
+            $queryFilter->apply(boolQuery: $boolQuery, requestConfiguration: $this->configuration);
         }
 
-        $query = Query::create($boolQuery);
+        $query = Query::create(query: $boolQuery);
 
         /** @var Query\AbstractQuery $queryObject */
         $queryObject = $query->getQuery();
-        $functionScore = $qb->query()->function_score()
-            ->setQuery($queryObject)
-            ->setBoostMode(Query\FunctionScore::BOOST_MODE_MULTIPLY)
-            ->setScoreMode(Query\FunctionScore::SCORE_MODE_MULTIPLY)
+
+        $functionScore = $queryBuilder
+            ->query()
+            ->function_score()
+            ->setQuery(query: $queryObject)
+            ->setBoostMode()
+            ->setScoreMode()
         ;
         foreach ($this->functionScores as $functionScoreClass) {
-            $functionScoreClass->addFunctionScore($functionScore, $this->configuration);
+            $functionScoreClass->addFunctionScore(
+                functionScore: $functionScore,
+                requestConfiguration: $this->configuration,
+            );
         }
 
-        $query->setQuery($functionScore);
+        $query->setQuery(query: $functionScore);
 
         return $query;
     }

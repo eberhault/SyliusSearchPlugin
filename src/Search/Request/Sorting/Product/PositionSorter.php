@@ -27,20 +27,39 @@ final class PositionSorter implements SorterInterface
     public function apply(Query $query, RequestConfiguration $requestConfiguration): void
     {
         $sorting = $requestConfiguration->getSorting();
-        if (!\array_key_exists('position', $sorting) && 0 !== \count($sorting)) {
+
+        if (!array_key_exists(key: 'position', array: $sorting) && 0 !== count(value: $sorting)) {
             return;
         }
 
-        $query->addSort($this->buildSort('_score', 'desc'));
-        if (RequestInterface::TAXON_TYPE == $requestConfiguration->getType()) {
-            $qb = new QueryBuilder();
-            $filter = $qb->query()->nested()
-                ->setPath('product_taxons.taxon')
+        $query->addSort(
+            sort: $this->buildSort(field: '_score', order: 'desc'),
+        );
+
+        if (RequestInterface::TAXON_TYPE === $requestConfiguration->getType()) {
+            $queryBuilder = new QueryBuilder();
+
+            $filter = $queryBuilder
+                ->query()
+                ->nested()
+                ->setPath(path: 'product_taxons.taxon')
                 ->setQuery(
-                    $qb->query()->term(['product_taxons.taxon.code' => ['value' => $requestConfiguration->getTaxon()->getCode()]])
+                    query: $queryBuilder
+                        ->query()
+                        ->term(
+                            term: ['product_taxons.taxon.code' => ['value' => $requestConfiguration->getTaxon()->getCode()]],
+                        ),
                 )
             ;
-            $query->addSort($this->buildSort('product_taxons.position', 'asc', 'product_taxons', null, $filter));
+
+            $query->addSort(
+                sort: $this->buildSort(
+                    field: 'product_taxons.position',
+                    order: 'asc',
+                    nestedPath: 'product_taxons',
+                    sortFilterValue: $filter,
+                ),
+            );
         }
     }
 }

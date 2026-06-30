@@ -13,15 +13,11 @@ declare(strict_types=1);
 
 namespace MonsieurBiz\SyliusSearchPlugin\Message;
 
-class ProductReindexFromTaxon
+readonly class ProductReindexFromTaxonId
 {
-    // todo rename to ProductReindexFromTaxonId
-
-    private int $taxonId;
-
-    public function __construct(int $taxonId)
-    {
-        $this->taxonId = $taxonId;
+    public function __construct(
+        private int $taxonId,
+    ) {
     }
 
     public function getTaxonId(): int

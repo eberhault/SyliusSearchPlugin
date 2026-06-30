@@ -18,25 +18,29 @@ use Elastica\QueryBuilder;
 use MonsieurBiz\SyliusSearchPlugin\Search\Request\RequestConfiguration;
 use Sylius\Component\Channel\Context\ChannelContextInterface;
 
-final class ChannelFilter implements QueryFilterInterface
+final readonly class ChannelFilter implements QueryFilterInterface
 {
-    private ChannelContextInterface $channelContext;
-
-    public function __construct(ChannelContextInterface $channelContext)
-    {
-        $this->channelContext = $channelContext;
+    public function __construct(
+        private ChannelContextInterface $channelContext,
+    ) {
     }
 
     public function apply(BoolQuery $boolQuery, RequestConfiguration $requestConfiguration): void
     {
-        $qb = new QueryBuilder();
+        $queryBuilder = new QueryBuilder();
 
         $boolQuery->addFilter(
-            $qb->query()->nested()
-                ->setPath('channels')
+            filter: $queryBuilder
+                ->query()
+                ->nested()
+                ->setPath(path: 'channels')
                 ->setQuery(
-                    $qb->query()->term(['channels.code' => ['value' => $this->channelContext->getChannel()->getCode()]])
-                )
+                    query: $queryBuilder
+                        ->query()
+                        ->term(
+                            term: ['channels.code' => ['value' => $this->channelContext->getChannel()->getCode()]],
+                        ),
+                ),
         );
     }
 }

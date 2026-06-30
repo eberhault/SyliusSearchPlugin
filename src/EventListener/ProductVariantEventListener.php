@@ -14,6 +14,7 @@ declare(strict_types=1);
 namespace MonsieurBiz\SyliusSearchPlugin\EventListener;
 
 use MonsieurBiz\SyliusSearchPlugin\Message\ProductReindexFromIds;
+use Sylius\Component\Core\Model\ProductInterface;
 use Sylius\Component\Core\Model\ProductVariantInterface;
 use Symfony\Component\EventDispatcher\GenericEvent;
 use Symfony\Component\Messenger\MessageBusInterface;
@@ -23,36 +24,36 @@ final class ProductVariantEventListener
 {
     private array $productIdsToReindex = [];
 
-    private MessageBusInterface $messageBus;
-
-    public function __construct(MessageBusInterface $messageBus)
-    {
-        $this->messageBus = $messageBus;
+    public function __construct(
+        private readonly MessageBusInterface $messageBus,
+    ) {
     }
 
     public function dispatchProductVariantReindexMessage(GenericEvent $event): void
     {
-        /** @var ProductVariantInterface $variant */
         $variant = $event->getSubject();
-        Assert::isInstanceOf($variant, ProductVariantInterface::class);
+        Assert::isInstanceOf(value: $variant, class: ProductVariantInterface::class);
 
-        if (null === $product = $variant->getProduct()) {
+        $product = $variant->getProduct();
+
+        if (!$product instanceof ProductInterface) {
             return;
         }
 
         $productReindexFromIdsMessage = new ProductReindexFromIds();
-        $productReindexFromIdsMessage->addProductId($product->getId());
+        $productReindexFromIdsMessage->addProductId(productIds: $product->getId());
 
         $this->messageBus->dispatch($productReindexFromIdsMessage);
     }
 
     public function saveProductIdToDispatchReindexMessage(GenericEvent $event): void
     {
-        /** @var ProductVariantInterface $variant */
         $variant = $event->getSubject();
-        Assert::isInstanceOf($variant, ProductVariantInterface::class);
+        Assert::isInstanceOf(value: $variant, class: ProductVariantInterface::class);
 
-        if (null === $product = $variant->getProduct()) {
+        $product = $variant->getProduct();
+
+        if (!$product instanceof ProductInterface) {
             return;
         }
 
@@ -61,20 +62,21 @@ final class ProductVariantEventListener
 
     public function dispatchProductReindexMessage(GenericEvent $event): void
     {
-        /** @var ProductVariantInterface $variant */
         $variant = $event->getSubject();
-        Assert::isInstanceOf($variant, ProductVariantInterface::class);
+        Assert::isInstanceOf(value: $variant, class: ProductVariantInterface::class);
 
-        if (empty($this->productIdsToReindex)) {
+        if ([] === $this->productIdsToReindex) {
             return;
         }
 
         $productReindexFromIdsMessage = new ProductReindexFromIds();
+
         foreach ($this->productIdsToReindex as $productIdToReindex) {
-            $productReindexFromIdsMessage->addProductId($productIdToReindex);
+            $productReindexFromIdsMessage->addProductId(productIds: $productIdToReindex);
         }
 
         $this->productIdsToReindex = [];
+
         $this->messageBus->dispatch($productReindexFromIdsMessage);
     }
 }

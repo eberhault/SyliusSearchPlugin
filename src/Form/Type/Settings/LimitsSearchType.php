@@ -15,10 +15,10 @@ namespace MonsieurBiz\SyliusSearchPlugin\Form\Type\Settings;
 
 use MonsieurBiz\SyliusSearchPlugin\Model\Documentable\DocumentableInterface;
 use Symfony\Component\Form\AbstractType;
-use Symfony\Component\Form\Extension\Core\Type\CollectionType;
 use Symfony\Component\Form\Extension\Core\Type\IntegerType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
+use Symfony\UX\LiveComponent\Form\Type\LiveCollectionType;
 
 class LimitsSearchType extends AbstractType
 {
@@ -27,44 +27,46 @@ class LimitsSearchType extends AbstractType
         /** @var DocumentableInterface $documentable */
         $documentable = $options['documentable'];
 
-        $builder->add(
-            'search',
-            CollectionType::class,
-            [
-                'entry_type' => IntegerType::class,
-                'label' => 'monsieurbiz_searchplugin.admin.setting_form.limit_search_' . $documentable->getIndexCode(),
-                'required' => true,
-                'allow_add' => true,
-                'allow_delete' => true,
-            ]
-        );
-        $builder->add(
-            'instant_search',
-            CollectionType::class,
-            [
-                'entry_type' => IntegerType::class,
-                'label' => 'monsieurbiz_searchplugin.admin.setting_form.limit_instant_search_' . $documentable->getIndexCode(),
-                'required' => true,
-                'allow_add' => true,
-                'allow_delete' => true,
-            ]
-        );
-        $builder->add(
-            'taxon',
-            CollectionType::class,
-            [
-                'entry_type' => IntegerType::class,
-                'label' => 'monsieurbiz_searchplugin.admin.setting_form.limit_taxon_' . $documentable->getIndexCode(),
-                'required' => true,
-                'allow_add' => true,
-                'allow_delete' => true,
-            ]
-        );
+        $builder
+            ->add(
+                child: 'search',
+                type: LiveCollectionType::class,
+                options: [
+                    'entry_type' => IntegerType::class,
+                    'label' => 'monsieurbiz_searchplugin.admin.setting_form.limit_search_' . $documentable->getIndexCode(),
+                    'required' => true,
+                    'allow_add' => true,
+                    'allow_delete' => true,
+                ],
+            )
+            ->add(
+                child: 'instant_search',
+                type: LiveCollectionType::class,
+                options: [
+                    'entry_type' => IntegerType::class,
+                    'label' => 'monsieurbiz_searchplugin.admin.setting_form.limit_instant_search_' . $documentable->getIndexCode(),
+                    'required' => true,
+                    'allow_add' => true,
+                    'allow_delete' => true,
+                ],
+            )
+            ->add(
+                child: 'taxon',
+                type: LiveCollectionType::class,
+                options: [
+                    'entry_type' => IntegerType::class,
+                    'label' => 'monsieurbiz_searchplugin.admin.setting_form.limit_taxon_' . $documentable->getIndexCode(),
+                    'required' => true,
+                    'allow_add' => true,
+                    'allow_delete' => true,
+                ],
+            );
     }
 
     public function configureOptions(OptionsResolver $resolver): void
     {
-        parent::configureOptions($resolver);
-        $resolver->setRequired('documentable');
+        parent::configureOptions(resolver: $resolver);
+
+        $resolver->setRequired(optionNames: 'documentable');
     }
 }

@@ -35,62 +35,50 @@ use Symfony\Component\Intl\Currencies;
 
 class SearchController extends AbstractController
 {
-    protected Search $search;
-
-    protected CurrencyContextInterface $currencyContext;
-
-    protected LocaleContextInterface $localeContext;
-
-    protected ChannelContextInterface $channelContext;
-
-    protected SettingsInterface $searchSettings;
-
-    protected ServiceRegistryInterface $documentableRegistry;
-
-    protected ParametersParserInterface $parametersParser;
-
     public function __construct(
-        Search $search,
-        CurrencyContextInterface $currencyContext,
-        LocaleContextInterface $localeContext,
-        ChannelContextInterface $channelContext,
-        SettingsInterface $searchSettings,
-        ServiceRegistryInterface $documentableRegistry,
-        ParametersParserInterface $parametersParser
+        private readonly Search $search,
+        private readonly CurrencyContextInterface $currencyContext,
+        private readonly LocaleContextInterface $localeContext,
+        private readonly ChannelContextInterface $channelContext,
+        private readonly SettingsInterface $searchSettings,
+        private readonly ServiceRegistryInterface $documentableRegistry,
+        private readonly ParametersParserInterface $parametersParser
     ) {
-        $this->search = $search;
-        $this->currencyContext = $currencyContext;
-        $this->localeContext = $localeContext;
-        $this->channelContext = $channelContext;
-        $this->searchSettings = $searchSettings;
-        $this->documentableRegistry = $documentableRegistry;
-        $this->parametersParser = $parametersParser;
     }
 
     public function searchAction(
         Request $request,
         string $query
     ): Response {
-        $documentType = ((string) $request->query->get('document_type')) ?: null;
-        $documentable = $this->getDocumentable($documentType);
-        $requestConfiguration = new RequestConfiguration(
-            $request,
-            RequestInterface::SEARCH_TYPE,
-            $documentable,
-            $this->searchSettings,
-            $this->channelContext
-        );
-        $result = $this->search->search($requestConfiguration);
+        $documentType = ((string)$request->query->get('document_type')) ?: null;
 
-        return $this->render('@MonsieurBizSyliusSearchPlugin/Search/result.html.twig', [
-            'documentableRegistries' => $this->getSearchEnabledDocumentables(),
-            'documentable' => $result->getDocumentable(),
-            'requestConfiguration' => $requestConfiguration,
-            'query' => urldecode($query),
-            'query_url' => $query,
-            'result' => $result,
-            'currencySymbol' => Currencies::getSymbol($this->currencyContext->getCurrencyCode(), $this->localeContext->getLocaleCode()),
-        ]);
+        $documentable = $this->getDocumentable($documentType);
+
+        $requestConfiguration = new RequestConfiguration(
+            request: $request,
+            type: RequestInterface::SEARCH_TYPE,
+            documentable: $documentable,
+            searchSettings: $this->searchSettings,
+            channelContext: $this->channelContext,
+        );
+
+        $result = $this->search->search(requestConfiguration: $requestConfiguration);
+
+        return $this->render(
+            view: '@MonsieurBizSyliusSearchPlugin/Search/result.html.twig',
+            parameters: [
+                'documentableRegistries' => $this->getSearchEnabledDocumentables(),
+                'documentable' => $result->getDocumentable(),
+                'requestConfiguration' => $requestConfiguration,
+                'query' => urldecode(string: $query),
+                'query_url' => $query,
+                'result' => $result,
+                'currencySymbol' => Currencies::getSymbol(
+                    currency: $this->currencyContext->getCurrencyCode(),
+                    displayLocale: $this->localeContext->getLocaleCode(),
+                ),
+            ],
+        );
     }
 
     /**
@@ -98,15 +86,15 @@ class SearchController extends AbstractController
      */
     public function postAction(Request $request): RedirectResponse
     {
-        $query = (array) ($request->request->all()['monsieurbiz_searchplugin_search'] ?? []);
+        $query = (array)($request->request->all()['monsieurbiz_searchplugin_search'] ?? []);
         $query = $query['query'] ?? '';
 
         // With Apache a URL with a encoded slash (%2F) is provoking a 404 error on the server level
-        return $this->redirect(
-            $this->generateUrl(
-                'monsieurbiz_search_search',
-                ['query' => str_replace('%2F', '/', urlencode($query))]
-            )
+        return $this->redirectToRoute(
+            route: 'monsieurbiz_search_search',
+            parameters: [
+                'query' => str_replace(search: '%2F', replace: '/', subject: urlencode(string: $query)),
+            ],
         );
     }
 
@@ -116,50 +104,68 @@ class SearchController extends AbstractController
     public function instantAction(Request $request): Response
     {
         $results = [];
+
         /** @var DocumentableInterface $documentable */
         foreach ($this->getInstantSearchEnabledDocumentables() as $documentable) {
             $requestConfiguration = new RequestConfiguration(
-                $request,
-                RequestInterface::INSTANT_TYPE,
-                $documentable,
-                $this->searchSettings,
-                $this->channelContext
+                request: $request,
+                type: RequestInterface::INSTANT_TYPE,
+                documentable: $documentable,
+                searchSettings: $this->searchSettings,
+                channelContext: $this->channelContext,
             );
 
             try {
-                $results[$documentable->getIndexCode()] = $this->search->search($requestConfiguration);
-            } catch (UnknownRequestTypeException $e) {
+                $results[$documentable->getIndexCode()] = $this->search->search(requestConfiguration: $requestConfiguration);
+            } catch (UnknownRequestTypeException) {
                 continue;
             }
         }
 
-        return $this->render('@MonsieurBizSyliusSearchPlugin/Instant/result.html.twig', [
-            'results' => $results,
-        ]);
+        return $this->render(
+            view: '@MonsieurBizSyliusSearchPlugin/Instant/result.html.twig',
+            parameters: [
+                'results' => $results,
+            ],
+        );
     }
 
+    /**
+     * @throws UnknownRequestTypeException
+     */
     public function taxonAction(
         Request $request,
         string $documentType = 'monsieurbiz_product'
     ): Response {
-        $documentable = $this->getDocumentable($documentType);
-        /** @var array $syliusAttribute */
-        $syliusAttribute = $request->attributes->get('_sylius', []);
-        $requestConfiguration = new RequestConfiguration(
-            $request,
-            RequestInterface::TAXON_TYPE,
-            $documentable,
-            $this->searchSettings,
-            $this->channelContext,
-            new Parameters($this->parametersParser->parseRequestValues($syliusAttribute, $request))
-        );
-        $result = $this->search->search($requestConfiguration);
+        $documentable = $this->getDocumentable(documentType: $documentType);
 
-        return $this->render('@MonsieurBizSyliusSearchPlugin/Taxon/result.html.twig', [
-            'requestConfiguration' => $requestConfiguration,
-            'result' => $result,
-            'currencySymbol' => Currencies::getSymbol($this->currencyContext->getCurrencyCode(), $this->localeContext->getLocaleCode()),
-        ]);
+        /** @var array $syliusAttribute */
+        $syliusAttribute = $request->attributes->get(key: '_sylius', default: []);
+
+        $requestConfiguration = new RequestConfiguration(
+            request: $request,
+            type: RequestInterface::TAXON_TYPE,
+            documentable: $documentable,
+            searchSettings: $this->searchSettings,
+            channelContext: $this->channelContext,
+            parameters: new Parameters(
+                $this->parametersParser->parseRequestValues(parameters: $syliusAttribute, request: $request),
+            ),
+        );
+
+        $result = $this->search->search(requestConfiguration: $requestConfiguration);
+
+        return $this->render(
+            view: '@MonsieurBizSyliusSearchPlugin/Taxon/result.html.twig',
+            parameters: [
+                'requestConfiguration' => $requestConfiguration,
+                'result' => $result,
+                'currencySymbol' => Currencies::getSymbol(
+                    currency: $this->currencyContext->getCurrencyCode(),
+                    displayLocale: $this->localeContext->getLocaleCode(),
+                ),
+            ],
+        );
     }
 
     protected function getDocumentable(?string $documentType): DocumentableInterface
@@ -172,23 +178,37 @@ class SearchController extends AbstractController
 
         try {
             /** @phpstan-ignore-next-line */
-            return $this->documentableRegistry->get('search.documentable.' . $documentType);
-        } catch (NonExistingServiceException $exception) {
-            throw new NotFoundHttpException(\sprintf('Documentable "%s" not found', $documentType));
+            return $this->documentableRegistry->get(sprintf('search.documentable.%s', $documentType));
+        } catch (NonExistingServiceException) {
+            throw new NotFoundHttpException(sprintf('Documentable "%s" not found', $documentType));
         }
     }
 
     protected function getSearchEnabledDocumentables(): array
     {
-        return array_filter($this->documentableRegistry->all(), function (DocumentableInterface $documentable) {
-            return (bool) $this->searchSettings->getCurrentValue($this->channelContext->getChannel(), null, 'search_enabled__' . $documentable->getIndexCode());
-        });
+        return array_filter(
+            array: $this->documentableRegistry->all(),
+            callback: function (DocumentableInterface $documentable): bool {
+                return (bool)$this->searchSettings->getCurrentValue(
+                    channel: $this->channelContext->getChannel(),
+                    localeCode: null,
+                    path: sprintf('search_enabled__%s', $documentable->getIndexCode()),
+                );
+            },
+        );
     }
 
     protected function getInstantSearchEnabledDocumentables(): array
     {
-        return array_filter($this->documentableRegistry->all(), function (DocumentableInterface $documentable) {
-            return (bool) $this->searchSettings->getCurrentValue($this->channelContext->getChannel(), null, 'instant_search_enabled__' . $documentable->getIndexCode());
-        });
+        return array_filter(
+            array: $this->documentableRegistry->all(),
+            callback: function (DocumentableInterface $documentable): bool {
+                return (bool)$this->searchSettings->getCurrentValue(
+                    channel: $this->channelContext->getChannel(),
+                    localeCode: null,
+                    path: sprintf('instant_search_enabled__%s', $documentable->getIndexCode()),
+                );
+            },
+        );
     }
 }

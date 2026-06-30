@@ -17,27 +17,28 @@ use Elastica\Query\AbstractQuery;
 
 trait SorterBuilderTrait
 {
-    /**
-     * @param string|AbstractQuery|null $sortFilterValue
-     */
     protected function buildSort(
         string $field,
         string $order,
         ?string $nestedPath = null,
         ?string $sortFilterField = null,
-        $sortFilterValue = null
+        null|string|AbstractQuery $sortFilterValue = null,
     ): array {
         $sort = [$field => ['order' => $order]];
+
         if (null !== $nestedPath) {
             $sort[$field]['nested']['path'] = $nestedPath;
+
             $filter = [
                 'term' => [
                     $sortFilterField => $sortFilterValue,
                 ],
             ];
+
             if ($sortFilterValue instanceof AbstractQuery) {
                 $filter = $sortFilterValue->toArray();
             }
+
             $sort[$field]['nested']['filter'] = $filter;
         }
 

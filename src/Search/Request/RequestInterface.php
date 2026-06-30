@@ -18,11 +18,11 @@ use MonsieurBiz\SyliusSearchPlugin\Model\Documentable\DocumentableInterface;
 
 interface RequestInterface
 {
-    public const SEARCH_TYPE = 'search';
+    public const string SEARCH_TYPE = 'search';
 
-    public const TAXON_TYPE = 'taxon';
+    public const string TAXON_TYPE = 'taxon';
 
-    public const INSTANT_TYPE = 'instant_search';
+    public const string INSTANT_TYPE = 'instant_search';
 
     public function getType(): string;
 

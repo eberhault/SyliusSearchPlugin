@@ -22,21 +22,31 @@ final class TaxonFilter implements QueryFilterInterface
 {
     public function apply(BoolQuery $boolQuery, RequestConfiguration $requestConfiguration): void
     {
-        $qb = new QueryBuilder();
-        $searchQuery = $qb->query()->nested()
-            ->setPath('product_taxons')
+        $queryBuilder = new QueryBuilder();
+
+        $searchQuery = $queryBuilder
+            ->query()
+            ->nested()
+            ->setPath(path: 'product_taxons')
             ->setQuery(
-                $qb->query()->nested()
-                    ->setPath('product_taxons.taxon')
+                query: $queryBuilder
+                    ->query()
+                    ->nested()
+                    ->setPath(path: 'product_taxons.taxon')
                     ->setQuery(
-                        $qb->query()->term(['product_taxons.taxon.code' => ['value' => $requestConfiguration->getTaxon()->getCode()]])
-                    )
+                        query: $queryBuilder
+                            ->query()
+                            ->term(
+                                term: ['product_taxons.taxon.code' => ['value' => $requestConfiguration->getTaxon()->getCode()]],
+                            ),
+                    ),
             )
         ;
+
         if ($requestConfiguration->getTaxon()->isRoot()) {
-            $searchQuery = $qb->query()->bool();
+            $searchQuery = $queryBuilder->query()->bool();
         }
 
-        $boolQuery->addMust($searchQuery);
+        $boolQuery->addMust(args: $searchQuery);
     }
 }

@@ -15,24 +15,31 @@ namespace MonsieurBiz\SyliusSearchPlugin\Repository;
 
 use Sylius\Bundle\ResourceBundle\Doctrine\ORM\EntityRepository;
 
-class ProductAttributeRepository implements ProductAttributeRepositoryInterface
+readonly class ProductAttributeRepository implements ProductAttributeRepositoryInterface
 {
-    private EntityRepository $attributeRepository;
-
-    public function __construct(EntityRepository $attributeRepository)
-    {
-        $this->attributeRepository = $attributeRepository;
+    public function __construct(
+        private EntityRepository $attributeRepository,
+    ) {
     }
 
     public function findIsSearchableOrFilterable(): array
     {
-        /** @phpstan-ignore-next-line */
-        return $this->attributeRepository->createQueryBuilder('o')
-            ->innerJoin('o.translations', 'translation')
-            ->andWhere('o.searchable = true')
-            ->orWhere('o.filterable = true')
+        $queryBuilder = $this->attributeRepository->createQueryBuilder(alias: 'product_attribute');
+
+        return $queryBuilder
+            ->innerJoin(
+                join: 'product_attribute.translations',
+                alias: 'product_attribute_translations',
+            )
+            ->where(
+                $queryBuilder->expr()->andX(
+                    $queryBuilder->expr()->eq(x: 'product_attribute.searchable', y: ':searchable'),
+                    $queryBuilder->expr()->eq(x: 'product_attribute.filterable', y: ':filterable')
+                )
+            )
+            ->setParameter(key: 'searchable', value: true)
+            ->setParameter(key: 'filterable', value: true)
             ->getQuery()
-            ->getResult()
-        ;
+            ->getResult();
     }
 }

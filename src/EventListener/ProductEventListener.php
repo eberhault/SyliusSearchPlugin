@@ -24,43 +24,40 @@ final class ProductEventListener
 {
     private array $productIdsToDelete = [];
 
-    private MessageBusInterface $messageBus;
-
-    public function __construct(MessageBusInterface $messageBus)
-    {
-        $this->messageBus = $messageBus;
+    public function __construct(
+        private readonly MessageBusInterface $messageBus,
+    ) {
     }
 
     public function dispatchProductReindexMessage(GenericEvent $event): void
     {
-        /** @var ProductInterface $product */
         $product = $event->getSubject();
-        Assert::isInstanceOf($product, ProductInterface::class);
+        Assert::isInstanceOf(value: $product, class: ProductInterface::class);
 
         $productReindexFromIdsMessage = new ProductReindexFromIds();
-        $productReindexFromIdsMessage->addProductId($product->getId());
+        $productReindexFromIdsMessage->addProductId(productIds: $product->getId());
 
         $this->messageBus->dispatch($productReindexFromIdsMessage);
     }
 
     public function saveProductIdToDispatchReindexMessage(GenericEvent $event): void
     {
-        /** @var ProductInterface $product */
         $product = $event->getSubject();
-        Assert::isInstanceOf($product, ProductInterface::class);
+        Assert::isInstanceOf(value: $product, class: ProductInterface::class);
 
         $this->productIdsToDelete[] = $product->getId();
     }
 
     public function dispatchDeleteProductReindexMessage(): void
     {
-        if (empty($this->productIdsToDelete)) {
+        if ([] === $this->productIdsToDelete) {
             return;
         }
 
         $productToDeleteFromIds = new ProductToDeleteFromIds();
+
         foreach ($this->productIdsToDelete as $productIdToDelete) {
-            $productToDeleteFromIds->addProductId($productIdToDelete);
+            $productToDeleteFromIds->addProductId(productIds: $productIdToDelete);
         }
 
         $this->productIdsToDelete = [];

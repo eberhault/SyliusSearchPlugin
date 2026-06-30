@@ -23,27 +23,26 @@ final class PriceSorter implements SorterInterface
 {
     use SorterBuilderTrait;
 
-    private ChannelContextInterface $channelContext;
-
-    public function __construct(ChannelContextInterface $channelContext)
-    {
-        $this->channelContext = $channelContext;
+    public function __construct(
+        private readonly ChannelContextInterface $channelContext,
+    ) {
     }
 
     public function apply(Query $query, RequestConfiguration $requestConfiguration): void
     {
         $sorting = $requestConfiguration->getSorting();
-        if (!\array_key_exists('price', $sorting)) {
+
+        if (!array_key_exists(key: 'price', array: $sorting)) {
             return;
         }
 
         $query->addSort(
-            $this->buildSort(
-                'prices.price',
-                $sorting['price'],
-                'prices',
-                'prices.channel_code',
-                $this->channelContext->getChannel()->getCode()
+            sort: $this->buildSort(
+                field: 'prices.price',
+                order: $sorting['price'],
+                nestedPath: 'prices',
+                sortFilterField: 'prices.channel_code',
+                sortFilterValue: $this->channelContext->getChannel()->getCode(),
             )
         );
     }

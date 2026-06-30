@@ -25,49 +25,41 @@ use Webmozart\Assert\Assert;
 
 class SearchableFixtureFactory extends AbstractExampleFactory implements SearchableFixtureFactoryInterface
 {
-    /**
-     * @var RepositoryInterface
-     */
-    protected $productAttributeRepository;
+    private OptionsResolver $optionsResolver;
 
-    /**
-     * @var RepositoryInterface
-     */
-    protected $productOptionRepository;
-
-    /**
-     * @var OptionsResolver
-     */
-    private $optionsResolver;
-
-    /**
-     * SearchableFixtureFactory constructor.
-     */
     public function __construct(
-        RepositoryInterface $productAttributeRepository,
-        RepositoryInterface $productOptionRepository
+        private readonly RepositoryInterface $productAttributeRepository,
+        private readonly RepositoryInterface $productOptionRepository,
     ) {
-        $this->productAttributeRepository = $productAttributeRepository;
-        $this->productOptionRepository = $productOptionRepository;
         $this->optionsResolver = new OptionsResolver();
+
         $this->configureOptions($this->optionsResolver);
     }
 
-    /**
-     * @inheritdoc
-     */
     protected function configureOptions(OptionsResolver $resolver): void
     {
         $resolver
-            ->setDefault('attribute', null)
-                ->setAllowedTypes('attribute', ['null', 'string', ProductAttributeInterface::class])
-                ->setNormalizer('attribute', LazyOption::findOneBy($this->productAttributeRepository, 'code'))
-            ->setDefault('option', null)
-                ->setAllowedTypes('option', ['null', 'string', ProductOptionInterface::class])
-                ->setNormalizer('option', LazyOption::findOneBy($this->productOptionRepository, 'code'))
-            ->setDefault('filterable', false)
-            ->setDefault('searchable', false)
-            ->setDefault('search_weight', 1)
+            ->setDefault(option: 'attribute', value: null)
+                ->setAllowedTypes(
+                    option: 'attribute',
+                    allowedTypes: ['null', 'string', ProductAttributeInterface::class],
+                )
+                ->setNormalizer(
+                    option: 'attribute',
+                    normalizer: LazyOption::findOneBy(repository: $this->productAttributeRepository, field: 'code'),
+                )
+            ->setDefault(option: 'option', value: null)
+                ->setAllowedTypes(
+                    option: 'option',
+                    allowedTypes: ['null', 'string', ProductOptionInterface::class],
+                )
+                ->setNormalizer(
+                    option: 'option',
+                    normalizer: LazyOption::findOneBy(repository: $this->productOptionRepository, field: 'code'),
+                )
+            ->setDefault(option: 'filterable', value: false)
+            ->setDefault(option: 'searchable', value: false)
+            ->setDefault(option: 'search_weight', value: 1)
         ;
     }
 
@@ -76,11 +68,12 @@ class SearchableFixtureFactory extends AbstractExampleFactory implements Searcha
      */
     public function create(array $options = []): SearchableInterface
     {
-        $options = $this->optionsResolver->resolve($options);
-        $object = $this->getSearchableObject($options);
-        $object->setFilterable((bool) ($options['filterable'] ?? false));
-        $object->setSearchable((bool) ($options['searchable'] ?? false));
-        $object->setSearchWeight((int) ($options['search_weight'] ?? 1));
+        $options = $this->optionsResolver->resolve(options: $options);
+
+        $object = $this->getSearchableObject(options: $options);
+        $object->setFilterable(filterable: (bool) ($options['filterable'] ?? false));
+        $object->setSearchable(searchable: (bool) ($options['searchable'] ?? false));
+        $object->setSearchWeight(searchWeight: (int) ($options['search_weight'] ?? 1));
 
         return $object;
     }
@@ -88,14 +81,14 @@ class SearchableFixtureFactory extends AbstractExampleFactory implements Searcha
     private function getSearchableObject(array $options): SearchableInterface
     {
         $object = null;
-        if (!empty($options['attribute'])) {
+
+        if ([] !== $options['attribute']) {
             $object = $options['attribute'];
-        } elseif (!empty($options['option'])) {
+        } elseif ([] !== $options['option']) {
             $object = $options['option'];
         }
 
-        /** @var SearchableInterface $object */
-        Assert::isInstanceOf($object, SearchableInterface::class);
+        Assert::isInstanceOf(value: $object, class: SearchableInterface::class);
 
         return $object;
     }

@@ -21,28 +21,36 @@ use Symfony\Component\Form\FormBuilderInterface;
 
 final class ProductOptionTypeExtension extends AbstractTypeExtension
 {
-    /**
-     * @SuppressWarnings(PHPMD.UnusedFormalParameter)
-     */
     public function buildForm(FormBuilderInterface $builder, array $options): void
     {
-        $searchWeightValues = range(1, 10);
+        $searchWeightValues = range(start: 1, end: 10);
 
         $builder
-            ->add('searchable', CheckboxType::class, [
-                'label' => 'monsieurbiz_searchplugin.admin.product_option.form.searchable',
-                'required' => true,
-            ])
-            ->add('filterable', CheckboxType::class, [
-                'label' => 'monsieurbiz_searchplugin.admin.product_option.form.filterable',
-                'required' => true,
-            ])
-            ->add('search_weight', ChoiceType::class, [
-                'label' => 'monsieurbiz_searchplugin.admin.product_option.form.search_weight',
-                'required' => true,
-                'choices' => array_combine($searchWeightValues, $searchWeightValues),
-            ])
-        ;
+            ->add(
+                child: 'searchable',
+                type: CheckboxType::class,
+                options: [
+                    'label' => 'monsieurbiz_searchplugin.admin.product_option.form.searchable',
+                    'required' => true,
+                ],
+            )
+            ->add(
+                child: 'filterable',
+                type: CheckboxType::class,
+                options: [
+                    'label' => 'monsieurbiz_searchplugin.admin.product_option.form.filterable',
+                    'required' => true,
+                ],
+            )
+            ->add(
+                child: 'search_weight',
+                type: ChoiceType::class,
+                options: [
+                    'label' => 'monsieurbiz_searchplugin.admin.product_option.form.search_weight',
+                    'required' => true,
+                    'choices' => array_combine(keys: $searchWeightValues, values: $searchWeightValues),
+                ],
+            );
     }
 
     public static function getExtendedTypes(): array

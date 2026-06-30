@@ -19,28 +19,30 @@ use Pagerfanta\Doctrine\ORM\QueryAdapter;
 use Pagerfanta\Pagerfanta;
 use Sylius\Component\Resource\Repository\RepositoryInterface;
 
-class RepositoryDatasource implements DatasourceInterface
+readonly class RepositoryDatasource implements DatasourceInterface
 {
-    private EntityManagerInterface $entityManager;
-
-    public function __construct(EntityManagerInterface $entityManager)
-    {
-        $this->entityManager = $entityManager;
+    public function __construct(
+        private EntityManagerInterface $entityManager,
+    ) {
     }
 
     public function getItems(string $sourceClass): iterable
     {
-        /** @phpstan-ignore-next-line */
         $repository = $this->entityManager->getRepository($sourceClass);
-        $paginator = $this->getPaginator($repository);
+
+        $paginator = $this->getPaginator(repository: $repository);
 
         $page = 1;
-        $paginator->setMaxPerPage(self::DEFAULT_MAX_PER_PAGE);
+
+        $paginator->setMaxPerPage(maxPerPage: self::DEFAULT_MAX_PER_PAGE);
+
         do {
-            $paginator->setCurrentPage($page);
+            $paginator->setCurrentPage(currentPage: $page);
+
             foreach ($paginator as $item) {
                 yield $item;
             }
+
             $page = $paginator->hasNextPage() ? $paginator->getNextPage() : 1;
         } while ($paginator->hasNextPage());
 
@@ -49,10 +51,18 @@ class RepositoryDatasource implements DatasourceInterface
 
     private function getPaginator(EntityRepository $repository): Pagerfanta
     {
-        if ($repository instanceof RepositoryInterface && ($paginator = $repository->createPaginator()) instanceof Pagerfanta) {
+        $paginator = $repository->createPaginator();
+
+        if ($repository instanceof RepositoryInterface && $paginator instanceof Pagerfanta) {
             return $paginator;
         }
 
-        return new Pagerfanta(new QueryAdapter($repository->createQueryBuilder('o'), false, false));
+        return new Pagerfanta(
+            adapter: new QueryAdapter(
+                query: $repository->createQueryBuilder(alias: 'o'),
+                fetchJoinCollection: false,
+                useOutputWalkers: false,
+            ),
+        );
     }
 }

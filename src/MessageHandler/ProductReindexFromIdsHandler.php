@@ -18,35 +18,28 @@ use MonsieurBiz\SyliusSearchPlugin\Message\ProductReindexFromIds;
 use MonsieurBiz\SyliusSearchPlugin\Model\Documentable\DocumentableInterface;
 use Sylius\Component\Core\Repository\ProductRepositoryInterface;
 use Sylius\Component\Registry\ServiceRegistryInterface;
-use Symfony\Component\Messenger\Handler\MessageHandlerInterface;
+use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
-class ProductReindexFromIdsHandler implements MessageHandlerInterface
+#[AsMessageHandler]
+readonly class ProductReindexFromIdsHandler
 {
-    private ProductRepositoryInterface $productRepository;
-
-    private IndexerInterface $indexer;
-
-    private ServiceRegistryInterface $documentableRegistry;
-
     public function __construct(
-        ProductRepositoryInterface $productRepository,
-        IndexerInterface $indexer,
-        ServiceRegistryInterface $documentableRegistry
+        private ProductRepositoryInterface $productRepository,
+        private IndexerInterface $indexer,
+        private ServiceRegistryInterface $documentableRegistry
     ) {
-        $this->productRepository = $productRepository;
-        $this->indexer = $indexer;
-        $this->documentableRegistry = $documentableRegistry;
     }
 
     public function __invoke(ProductReindexFromIds $message): void
     {
         /** @var DocumentableInterface $documentable */
-        $documentable = $this->documentableRegistry->get('search.documentable.monsieurbiz_product');
-        $products = $this->productRepository->findBy(['id' => $message->getProductIds()]);
+        $documentable = $this->documentableRegistry->get(identifier: 'search.documentable.monsieurbiz_product');
+
+        $products = $this->productRepository->findBy(criteria: ['id' => $message->getProductIds()]);
 
         $this->indexer->indexByDocuments(
-            $documentable,
-            $products
+            documentable: $documentable,
+            documents: $products,
         );
     }
 }
