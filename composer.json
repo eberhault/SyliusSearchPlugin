@@ -5,14 +5,14 @@
     "description": "A search plugin using Elasticsearch for Sylius.",
     "license": "MIT",
     "require": {
-        "php": "^8.3",
+        "php": "^8.4",
         "babdev/pagerfanta-bundle": "^4.0",
         "jacquesbh/eater": "^2.0",
         "jolicode/automapper": "^9.5",
         "symfony/messenger": "^6.4",
         "jolicode/elastically": "^2.2",
         "monsieurbiz/sylius-settings-plugin": "^2.0",
-        "sylius/sylius": "^2.2"
+        "sylius/sylius": "^2.3"
     },
     "require-dev": {
         "friendsofphp/php-cs-fixer": "^3.16",
@@ -44,7 +44,7 @@
     },
     "extra": {
         "branch-alias": {
-            "dev-master": "3.0"
+            "dev-sylius-2.3": "3.0"
         },
         "symfony": {
             "docker": false,
